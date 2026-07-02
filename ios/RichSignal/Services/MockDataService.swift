@@ -322,8 +322,8 @@ final class MockDataService: SignalDataProviding {
             hySpread: 3.41,
             realRate: isGold ? 1.92 : nil,
             dollarIndex: isGold ? 103.6 : nil,
-            newsScore: 0.18,
-            newsZ: 0.55
+            newsScore: 0.62,   // [0,1], 0.5=중립 — 게이트 통과한 완만한 긍정
+            newsZ: 1.35
         )
         return SectorDetailResponse(
             sector: snap,

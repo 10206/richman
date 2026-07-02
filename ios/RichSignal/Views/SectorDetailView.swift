@@ -74,6 +74,8 @@ struct SectorDetailView: View {
                         .foregroundStyle(.secondary)
                     BiasDirectionLabel(bias: detail.regimeBias)
                 }
+
+                RationaleNote(text: ScoreExplainer.overall(detail))
             }
             .padding(.vertical, 4)
         }
@@ -87,6 +89,7 @@ struct SectorDetailView: View {
             DisclosureGroup {
                 componentRows(value: detail.sector.trend,
                               weight: detail.sector.wTrend)
+                RationaleNote(text: ScoreExplainer.trend(detail))
             } label: {
                 componentHeader(label: "추세 (T)", color: .blue,
                                 contribution: detail.sector.trendContribution)
@@ -95,6 +98,7 @@ struct SectorDetailView: View {
             DisclosureGroup {
                 componentRows(value: detail.sector.volume,
                               weight: detail.sector.wVolume)
+                RationaleNote(text: ScoreExplainer.volume(detail))
             } label: {
                 componentHeader(label: "거래량 (V)", color: .teal,
                                 contribution: detail.sector.volumeContribution)
@@ -104,6 +108,7 @@ struct SectorDetailView: View {
                 componentRows(value: detail.sector.macro,
                               weight: detail.sector.wMacro)
                 macroRawRows(detail.macroRaw)
+                RationaleNote(text: ScoreExplainer.macro(detail))
             } label: {
                 componentHeader(label: "거시 (M)", color: .purple,
                                 contribution: detail.sector.macroContribution)
@@ -161,8 +166,9 @@ struct SectorDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                SentimentIcon(sentiment: v)
-                Text(String(format: "%+.2f", v))
+                // news_score는 [0,1](0.5=중립) 계약 → 아이콘용 [-1,1]로 변환
+                SentimentIcon(sentiment: (v - 0.5) * 2)
+                Text(String(format: "%.2f", v))
                     .font(.caption.monospacedDigit())
             }
         }

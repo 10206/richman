@@ -212,6 +212,28 @@ struct SentimentIcon: View {
     }
 }
 
+// MARK: - 점수 근거 요약 문구
+
+/// 점수 산출 근거를 줄글로 보여주는 노트 (좌측 연두 강조 바 + 본문).
+struct RationaleNote: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color("AccentColor"))
+                .frame(width: 3)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("점수 근거. \(text)")
+    }
+}
+
 // MARK: - 에러/빈 상태
 
 struct InlineErrorView: View {
