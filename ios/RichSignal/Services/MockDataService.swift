@@ -349,6 +349,30 @@ final class MockDataService: SignalDataProviding {
         return RegimeHistoryResponse(items: items)
     }
 
+    func calendar(month: String?) async throws -> CalendarResponse {
+        let cal = Calendar(identifier: .gregorian)
+        let today = Date()
+        let comps = cal.dateComponents([.year, .month], from: today)
+        let y = comps.year ?? 2026
+        let m = comps.month ?? 7
+        let mm = String(format: "%04d-%02d", y, m)
+        func d(_ day: Int) -> String { String(format: "%@-%02d", mm, day) }
+        let events = [
+            CalendarEvent(date: d(1), market: .KR, category: .macro, title: "수출입동향(관세청)", importance: 2, confirmed: false),
+            CalendarEvent(date: d(3), market: .US, category: .macro, title: "고용보고서(비농업 고용)", importance: 3, confirmed: false),
+            CalendarEvent(date: d(7), market: .KR, category: .macro, title: "소비자물가동향(통계청)", importance: 3, confirmed: false),
+            CalendarEvent(date: d(8), market: .US, category: .macro, title: "소비자물가(CPI)", importance: 3, confirmed: false),
+            CalendarEvent(date: d(9), market: .KR, category: .macro, title: "한국은행 금통위 정책금리 결정", importance: 3, confirmed: false),
+            CalendarEvent(date: d(15), market: .US, category: .earnings, title: "Johnson & Johnson (JNJ) 실적", importance: 2, confirmed: true),
+            CalendarEvent(date: d(16), market: .US, category: .earnings, title: "TSMC (TSM) 실적", importance: 2, confirmed: true),
+            CalendarEvent(date: d(21), market: .US, category: .macro, title: "소매판매", importance: 2, confirmed: false),
+            CalendarEvent(date: d(23), market: .US, category: .earnings, title: "Intel (INTC) 실적", importance: 2, confirmed: true),
+            CalendarEvent(date: d(28), market: .US, category: .earnings, title: "Texas Instruments (TXN) 실적", importance: 2, confirmed: true),
+            CalendarEvent(date: d(29), market: .US, category: .macro, title: "FOMC 정책금리 결정", importance: 3, confirmed: false),
+        ]
+        return CalendarResponse(month: mm, events: events)
+    }
+
     func pendingNotifications() async throws -> NotificationsPendingResponse {
         let now = ISO8601DateFormatter().string(from: Date())
         let all = [

@@ -8,6 +8,7 @@ protocol SignalDataProviding {
     func history(market: MarketCode, sector: SectorCode, days: Int) async throws -> HistoryResponse
     func detail(market: MarketCode, sector: SectorCode) async throws -> SectorDetailResponse
     func regimeHistory(market: MarketCode, days: Int) async throws -> RegimeHistoryResponse
+    func calendar(month: String?) async throws -> CalendarResponse
     func pendingNotifications() async throws -> NotificationsPendingResponse
     func ackNotifications(ids: [Int]) async throws -> AckResponse
 }
@@ -129,6 +130,11 @@ struct LiveAPIClient: SignalDataProviding {
         try await get("/api/v1/regime/history",
                       query: [URLQueryItem(name: "market", value: market.rawValue),
                               URLQueryItem(name: "days", value: String(days))])
+    }
+
+    func calendar(month: String?) async throws -> CalendarResponse {
+        let query = month.map { [URLQueryItem(name: "month", value: $0)] } ?? []
+        return try await get("/api/v1/calendar", query: query)
     }
 
     func pendingNotifications() async throws -> NotificationsPendingResponse {

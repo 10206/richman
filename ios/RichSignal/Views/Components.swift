@@ -212,6 +212,94 @@ struct SentimentIcon: View {
     }
 }
 
+// MARK: - 경제 캘린더
+
+enum CalendarFormat {
+    /// "2026-07" → "2026년 7월"
+    static func monthTitle(_ month: String) -> String {
+        let parts = month.split(separator: "-")
+        guard parts.count == 2, let y = Int(parts[0]), let m = Int(parts[1]) else { return month }
+        return "\(y)년 \(m)월"
+    }
+
+    private static let weekdaySymbols = ["일", "월", "화", "수", "목", "금", "토"]
+
+    /// "2026-07-03" → ("3", "금")
+    static func dayAndWeekday(_ date: String) -> (day: String, weekday: String) {
+        let d = APIDate.parse(date)
+        let cal = Calendar(identifier: .gregorian)
+        let day = cal.component(.day, from: d)
+        let w = cal.component(.weekday, from: d) - 1   // 1=일 → 0-index
+        return ("\(day)", weekdaySymbols[max(0, min(6, w))])
+    }
+
+    static func isToday(_ date: String) -> Bool {
+        date == APIDate.string(from: Date())
+    }
+    static func isPast(_ date: String) -> Bool {
+        date < APIDate.string(from: Date())
+    }
+}
+
+/// 캘린더 이벤트 한 줄: [일자] [시장칩] [카테고리아이콘] 제목 [예상]
+struct CalendarEventRow: View {
+    let event: CalendarEvent
+
+    private var marketColor: Color { event.market == .US ? .blue : .indigo }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // 일자
+            let dw = CalendarFormat.dayAndWeekday(event.date)
+            VStack(spacing: 0) {
+                Text(dw.day)
+                    .font(.headline.monospacedDigit())
+                Text(dw.weekday)
+                    .font(.caption2)
+                    .foregroundStyle(dw.weekday == "일" ? .red : (dw.weekday == "토" ? .blue : .secondary))
+            }
+            .frame(width: 34)
+            .opacity(CalendarFormat.isPast(event.date) ? 0.45 : 1)
+
+            // 시장 칩
+            Text(event.market.label)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(marketColor)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(marketColor.opacity(0.15), in: Capsule())
+
+            // 카테고리 아이콘 + 제목
+            Image(systemName: event.category.iconName)
+                .font(.caption)
+                .foregroundStyle(event.category == .earnings ? Color("AccentColor") : .secondary)
+            Text(event.title)
+                .font(.subheadline)
+                .foregroundStyle(CalendarFormat.isPast(event.date) ? .secondary : .primary)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            // 중요도(높음) 또는 예상 표시
+            if !event.confirmed {
+                Text("예상")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else if event.importance >= 3 {
+                Image(systemName: "exclamationmark")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(event.market.label) \(CalendarFormat.dayAndWeekday(event.date).day)일, "
+            + "\(event.category.label), \(event.title)\(event.confirmed ? "" : ", 예상")"
+        )
+    }
+}
+
 // MARK: - 점수 근거 요약 문구
 
 /// 점수 산출 근거를 줄글로 보여주는 노트 (좌측 연두 강조 바 + 본문).

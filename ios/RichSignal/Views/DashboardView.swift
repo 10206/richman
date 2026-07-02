@@ -5,6 +5,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @State private var dashboard: DashboardResponse?
+    @State private var calendar: CalendarResponse?
     @State private var errorMessage: String?
     @State private var selectedMarket: MarketCode = .KR
     @AppStorage(AppSettings.Key.mockMode) private var mockMode = true
@@ -20,6 +21,7 @@ struct DashboardView: View {
                 signalChangeSection(dashboard)
                 regimeSection(dashboard)
                 sectorSection(dashboard)
+                if let calendar { calendarSection(calendar) }
             } else if errorMessage == nil {
                 Section {
                     HStack {
@@ -117,6 +119,27 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: ④ 이달의 캘린더 (미국/한국 실적 + 거시 지표 발표)
+
+    @ViewBuilder
+    private func calendarSection(_ cal: CalendarResponse) -> some View {
+        Section {
+            if cal.events.isEmpty {
+                Text("이달 예정된 일정 없음")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(cal.upcomingThenPast) { event in
+                    CalendarEventRow(event: event)
+                }
+            }
+        } header: {
+            Text("이달의 캘린더 · \(CalendarFormat.monthTitle(cal.month))")
+        } footer: {
+            Text("실적은 확정 발표일, 거시 지표는 정례 주기 기반 예상일입니다.")
+        }
+    }
+
     // MARK: 로드
 
     private func load() async {
@@ -125,6 +148,8 @@ struct DashboardView: View {
             dashboard = try await client.dashboard()
             errorMessage = nil
             AppSettings.lastSyncAt = Date()
+            // 캘린더는 부가 정보 — 실패해도 대시보드는 유지
+            calendar = try? await client.calendar(month: nil)
         } catch {
             errorMessage = error.localizedDescription
         }

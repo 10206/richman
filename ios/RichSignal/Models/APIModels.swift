@@ -262,6 +262,42 @@ struct NewsItem: Codable, Identifiable {
     var id: String { url + date }
 }
 
+// MARK: - 경제 캘린더
+
+struct CalendarResponse: Codable {
+    let month: String            // "YYYY-MM"
+    let events: [CalendarEvent]
+
+    /// 오늘 이후(다가오는) 일정을 먼저, 지난 일정을 뒤로 — 각 구간은 날짜 오름차순.
+    var upcomingThenPast: [CalendarEvent] {
+        let today = APIDate.string(from: Date())
+        let sorted = events.sorted { $0.date < $1.date }
+        let upcoming = sorted.filter { $0.date >= today }
+        let past = sorted.filter { $0.date < today }
+        return upcoming + past
+    }
+}
+
+struct CalendarEvent: Codable, Identifiable {
+    let date: String             // "YYYY-MM-DD"
+    let market: MarketCode
+    let category: CalendarCategory
+    let title: String
+    let importance: Int          // 1~3 (3=최상)
+    let confirmed: Bool          // true=확정(실적), false=예상(거시 정례주기)
+
+    var id: String { "\(date)-\(market.rawValue)-\(title)" }
+    var dateValue: Date { APIDate.parse(date) }
+}
+
+enum CalendarCategory: String, Codable {
+    case earnings   // 실적
+    case macro      // 거시 지표
+
+    var label: String { self == .earnings ? "실적" : "지표" }
+    var iconName: String { self == .earnings ? "building.2.fill" : "chart.xyaxis.line" }
+}
+
 // MARK: - 국면 히스토리
 
 struct RegimeHistoryResponse: Codable {
