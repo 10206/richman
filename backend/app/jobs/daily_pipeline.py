@@ -24,6 +24,7 @@ import argparse
 import json
 import logging
 import math
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 FRED_US_SERIES = ["DGS2", "DGS10", "DFII10", "VIXCLS", "BAMLH0A0HYM2", "DTWEXBGS"]
 WARMUP_ROWS = 252          # 백필 시 제외할 z-score 워밍업 구간 (거래일)
 NEWS_LOOKBACK_DAYS = 30    # 뉴스 감성 상대 창 (가장 최신 기사 기준 N일 이내)
+NEWS_REQUEST_INTERVAL_SEC = 1.5   # AV 무료 티어 초당 1회 버스트 제한 회피
 STANCE_LABELS = {"LONG": "보유", "CASH": "현금보유"}
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
@@ -156,7 +158,10 @@ def collect_news(
 
     # 서버 시계 기준 절대 창(time_from) 대신 "가장 최신 기사 기준 상대 창"을 쓴다.
     # AV 무료 티어의 최신 기사 날짜가 서버 시계보다 뒤처져 있어도(간극) 견고하게 최신 뉴스를 확보.
-    for sector in Sector:
+    # AV 무료 티어는 초당 1회 버스트 제한이 있어 섹터 요청 사이에 간격을 둔다 (일당 25회는 6요청이라 여유).
+    for i, sector in enumerate(Sector):
+        if i > 0:
+            time.sleep(NEWS_REQUEST_INTERVAL_SEC)
         try:
             items = news.fetch_us_news(sector, settings.alphavantage_api_key)
         except Exception as e:  # noqa: BLE001 — 뉴스는 부가 신호, 실패해도 계속
