@@ -32,7 +32,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cd ios && xcodegen generate && open RichSignal.xcodeproj   # ⌘R
 ```
 
-- 배포(Railway/Supabase): docs/05-DEPLOYMENT.md
+- 배포(Railway, 볼륨+SQLite): docs/05-DEPLOYMENT.md
 - 실기기 설치: docs/06-IOS-INSTALL.md
 - 백테스트 재현: `cd backend && .venv/bin/python backtest/run_backtest.py`
 - **사용자 확인 필요 항목: docs/07-DECISIONS-FOR-USER.md**

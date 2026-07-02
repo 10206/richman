@@ -63,7 +63,7 @@ z_t    = (fast_t − slow_t) / rolling_std(s, 63일)
 | 섹터 상세 화면 "관련 뉴스 요약" | 일 1회 배치, Claude Haiku, 프롬프트 캐싱 | **Haiku (일 6섹터×2시장 = 12콜/일)** |
 | 거시 이벤트 해석 (FOMC/금통위 요약) | 이벤트 발생일에만 배치, Haiku | Haiku (월 2~4콜) |
 
-- 인앱 실시간 LLM 호출: **0** (앱은 Supabase에 저장된 배치 결과만 읽음)
+- 인앱 실시간 LLM 호출: **0** (앱은 백엔드 DB에 저장된 배치 결과만 읽음)
 - 예상 LLM 비용: Haiku 기준 월 $1 미만
 - 뉴스 요약 실패/미설정 시에도 신호 파이프라인은 영향 없음 (요약은 표시용 부가 기능)
 
@@ -71,7 +71,7 @@ z_t    = (fast_t − slow_t) / rolling_std(s, 63일)
 
 | 시각 | 잡 | 내용 |
 |---|---|---|
-| 15:50 (평일) | `daily_pipeline --market KR` | KIS 한국 시세 + ECOS 금리 → 국면(KR) + 한국 섹터 점수/신호 → Supabase 저장 → 알림 이벤트 생성 |
+| 15:50 (평일) | `daily_pipeline --market KR` | KIS 한국 시세 + ECOS 금리 → 국면(KR) + 한국 섹터 점수/신호 → DB 저장 → 알림 이벤트 생성 |
 | 06:10 (화~토) | `daily_pipeline --market US` | KIS/stooq 미국 시세 + FRED + 뉴스 감성 → 국면(US) + 미국 섹터 점수/신호 → 저장 → **아침 다이제스트** 생성 |
 
 - Railway cron 2개로 등록 (docs/05). 휴장일은 데이터 미갱신 감지 시 자동 스킵.

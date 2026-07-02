@@ -14,13 +14,15 @@
 - 실 키 투입 후 첫 실행에서 컬럼명(stck_clpr/acml_vol, clos/tvol)과 페이징을 검증할 것.
   KIS 실패 시 `prices.py`가 경고 로그 후 yfinance로 자동 폴백하므로 파이프라인은 안 죽음.
 
-## A-P4-2. Supabase는 실검증 불가 — 인터페이스 계약만 고정
+## A-P4-2. Supabase는 실검증 불가 — 인터페이스 계약만 고정 (2026-07-02: 기본 경로 아님)
 
 - 실 Supabase 프로젝트가 없어 `SupabaseStore`는 supabase-py upsert(on_conflict) 스펙
-  기반으로 작성, 통합 검증은 사용자가 프로젝트 생성 후(docs/05 예정).
-- `migrations/001_init.sql`을 Supabase SQL Editor에서 실행하면 스키마 준비 완료.
-  RLS는 켜되 정책 없음 = service key(백엔드)만 접근 가능.
+  기반으로 작성. `migrations/001_init.sql`을 Supabase SQL Editor에서 실행하면 스키마 준비
+  완료. RLS는 켜되 정책 없음 = service key(백엔드)만 접근 가능.
 - 로컬/CI 검증은 동일 인터페이스의 SQLiteStore로 수행(tests/test_store.py).
+- **2026-07-02**: Supabase 무료 티어 한도 이슈로 프로덕션 기본 경로를 Railway 볼륨+SQLite로
+  변경(docs/00 A9, docs/05). `SupabaseStore`는 코드에 그대로 남아 있고 `SUPABASE_URL` 설정
+  시 자동 활성화되는 선택적 백엔드로 유지 — 위 검증 상태(미검증)는 그대로 적용됨.
 
 ## A-P4-3. KR 전력 프록시는 yfinance에서 정상 조회됨 — 스킵 불필요
 
