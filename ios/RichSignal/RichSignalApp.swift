@@ -42,5 +42,8 @@ struct RootView: View {
                 Label("설정", systemImage: "gearshape.fill")
             }
         }
+        // 앱 강조색 = 로고 연두 (AccentColor 에셋: 라이트 짙은 연두 / 다크 밝은 연두).
+        // 색상 스킴 자체는 시스템(아이폰) 설정을 그대로 따른다 — 강제하지 않음.
+        .tint(Color("AccentColor"))
     }
 }

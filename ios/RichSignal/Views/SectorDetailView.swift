@@ -218,7 +218,7 @@ struct SectorDetailView: View {
                             x: .value("날짜", point.dateValue),
                             y: .value("점수", point.score)
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color("AccentColor"))   // 총점 추이 = 브랜드 연두
                         .interpolationMethod(.monotone)
                     }
 
