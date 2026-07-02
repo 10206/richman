@@ -13,6 +13,17 @@
 - [x] P5. iOS SwiftUI 앱 (ios/) — 14파일, swiftc -parse 전체 통과, 모의 데이터 모드 내장
 - [x] P6. 배포/설치 가이드 (docs/05~06) + 사용자 판단 항목 (docs/07) + README
 
+## 2026-07-02 추가 변경 — 전력 섹터 재정의
+
+사용자 확인: "전력" = 전력기기/인프라 (유틸리티 아님). 반영 완료:
+- KR 프록시 117460(임시) → **487240** KODEX AI전력핵심설비 (효성중공업/HD현대일렉트릭/LS ELECTRIC)
+- US 프록시 XLU(유틸리티) → **GRID** First Trust Smart Grid Infra (12년 이력으로 재보정)
+- 신호 임계값 재확정: enter 50→**60**, exit 30(유지), confirm 3일→**2일** (docs/04 §7)
+- bias 매트릭스(G/R/T/F: +1/+1/0/+1)는 재검증 결과 부호 유지 — 변경 없음
+- docs/00, 02, 04, 07, backend/AGENT_NOTES.md, sectors.py 갱신 + pytest 46개 재통과 +
+  US/KR 로컬 DB 재백필 확인. docs/07 항목 1 해결됨으로 마감.
+- GitHub 원격(https://github.com/10206/richman.git)은 세션 환경이 자동 미러링 — 별도 push 불필요.
+
 ## 통합 검증 기록
 
 - 백엔드↔iOS 계약 교차 검증: local_trend 타입 불일치(숫자 vs 문자열) 발견 →

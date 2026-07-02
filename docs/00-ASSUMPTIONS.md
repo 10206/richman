@@ -38,16 +38,17 @@
 |---|---|---|
 | 반도체 | KODEX 반도체 (091160) | SMH (VanEck Semiconductor) |
 | 로봇 | KODEX K-로봇액티브 (445290) | BOTZ (Global X Robotics & AI) |
-| 전력 | KODEX 전력 관련 대표 ETF* | XLU (Utilities) + GRID 보조 |
+| 전력 | KODEX AI전력핵심설비 (487240) | GRID (First Trust Smart Grid Infra) |
 | 헬스케어 | TIGER 헬스케어 (143860) | XLV (Health Care) |
 | 금 | ACE KRX금현물 (411060) | GLD (SPDR Gold) |
 | 국채 | KOSEF 국고채10년 (148070) | TLT (20Y+) / IEF (7-10Y) |
 
-- *한국 "전력" 섹터는 딱 맞는 단일 ETF가 유동적(전력기기 vs 유틸리티). 기본값으로
-  **HANARO 원자력iSelect(434730)** 대신 **KODEX 에너지화학이 아닌**, 전력기기 중심의
-  **TIGER Fn신재생에너지가 아닌** — 정확한 상장 ETF 확정이 어려워 **KRX 전기가스업 지수
-  기반 계산(코드에서 지수 직접 사용)** 을 1차 가정으로 두고, ETF 티커는 설정값으로 노출.
-  → **사용자 확인 필요** (전력 = 한전 등 유틸리티인지, LS일렉트릭 등 전력기기인지).
+- **"전력" 확정 (2026-07-02 사용자 확인)**: 유틸리티(한전)가 아니라 **전력기기/인프라**
+  (변압기·중전기 등 AI데이터센터發 전력설비 수혜주). KR은 KODEX AI전력핵심설비(487240,
+  2024-07 상장) — 효성중공업/HD현대일렉트릭/LS ELECTRIC 비중 약 69%. US는 XLU(유틸리티)
+  대신 **GRID**(Eaton/Schneider Electric/ABB/Quanta Services 등 전력망 인프라 129종목,
+  2009년 상장이라 장기 백테스트 가능)로 교체. 재보정 결과는 docs/04 §7.
+  → **해결됨** (기존 docs/07 항목 1 클로즈).
 
 ## A5. 백테스트는 미국 ETF + FRED 데이터로 프레임워크를 검증
 

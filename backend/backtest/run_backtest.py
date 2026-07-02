@@ -34,7 +34,7 @@ START = "2014-01-01"
 ETFS = {
     Sector.SEMICONDUCTOR: "SMH",
     Sector.ROBOTICS: "BOTZ",
-    Sector.POWER: "XLU",
+    Sector.POWER: "GRID",
     Sector.HEALTHCARE: "XLV",
     Sector.GOLD: "GLD",
     Sector.BONDS: "TLT",

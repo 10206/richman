@@ -48,7 +48,8 @@ SECTOR_LABELS_KO = {
 
 # docs/01 §4 — 국면 → 섹터 방향 bias (-2 ~ +2)
 # 초안에서 2015~2026 백테스트로 보정된 값 (docs/04 §3):
-#  - 전력/헬스케어 T: -1 → 0 (방어섹터는 긴축 국면에서 실증적으로 선방 — 2022 XLU 보합)
+#  - 전력/헬스케어 T: -1 → 0 (방어적 흐름이 긴축 국면에서 실증적으로 선방 — 2022 연환산 +11~17%,
+#    전력은 프록시가 XLU→GRID로 바뀐 뒤에도 동일 부호 유지, docs/04 §7)
 #  - 반도체/로봇 F: -1 → 0 (F는 확인 시점이 늦어 국면 확정 후엔 반등 구간이 대부분)
 #  - 국채 F: +2 → +1 (유동성 위기형 F에서는 장기채도 동반 매도 — 2020.3 실증)
 REGIME_BIAS: dict[Sector, dict[Regime, int]] = {
@@ -110,18 +111,19 @@ SECTOR_SPEED: dict[Sector, str] = {
 SECTOR_SIGNAL_PARAMS: dict[Sector, tuple[float, float, int]] = {
     Sector.SEMICONDUCTOR: (55.0, 35.0, 2),
     Sector.ROBOTICS:      (55.0, 35.0, 2),
-    Sector.POWER:         (50.0, 30.0, 3),  # 방어 섹터: 극단에서만 현금 전환
+    Sector.POWER:         (60.0, 30.0, 2),  # 전력기기/인프라 — 성장형 재보정 (docs/04 §7)
     Sector.HEALTHCARE:    (50.0, 30.0, 3),
     Sector.GOLD:          (55.0, 35.0, 3),
     Sector.BONDS:         (50.0, 35.0, 3),
 }
 
-# 섹터 프록시 (가정 A4). KR 전력은 지수 코드 폴백 — 사용자 확정 필요 (docs/07)
+# 섹터 프록시 (가정 A4, 전력은 2026-07 사용자 확정 반영 — docs/07 해결됨).
+# "전력" = 전력기기/인프라(변압기·중전기 등 AI데이터센터發 전력설비 수혜주), 유틸리티(한전) 아님.
 SECTOR_PROXIES: dict[Market, dict[Sector, str]] = {
     Market.KR: {
         Sector.SEMICONDUCTOR: "091160",  # KODEX 반도체
         Sector.ROBOTICS: "445290",       # KODEX K-로봇액티브
-        Sector.POWER: "117460",          # KRX 전기가스업 지수 폴백 대신 임시 — docs/07 확인 항목
+        Sector.POWER: "487240",          # KODEX AI전력핵심설비 (효성중공업/HD현대일렉트릭/LS ELECTRIC 비중 69%, 2024-07 상장)
         Sector.HEALTHCARE: "143860",     # TIGER 헬스케어
         Sector.GOLD: "411060",           # ACE KRX금현물
         Sector.BONDS: "148070",          # KOSEF 국고채10년
@@ -129,7 +131,7 @@ SECTOR_PROXIES: dict[Market, dict[Sector, str]] = {
     Market.US: {
         Sector.SEMICONDUCTOR: "SMH",
         Sector.ROBOTICS: "BOTZ",
-        Sector.POWER: "XLU",
+        Sector.POWER: "GRID",            # First Trust Nasdaq Clean Edge Smart Grid Infrastructure (Eaton/Schneider/ABB/Quanta 등 전력망 인프라)
         Sector.HEALTHCARE: "XLV",
         Sector.GOLD: "GLD",
         Sector.BONDS: "TLT",
