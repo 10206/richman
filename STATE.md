@@ -37,6 +37,20 @@ Supabase 무료 티어 프로젝트 개수 한도에 걸림 → 사용자가 SQL
   안전하게 처리됨을 실측 확인 — Railway CLI(`railway run`) 없이 curl만으로 초기 적재 가능
 - docs/00(A9), docs/05(전면 재작성), docs/07(항목 2 해결) 갱신
 
+## 2026-07-02 추가 변경 — Railway 실배포 완료 (CLI로 진행)
+
+프로젝트 `refreshing-expression`(이미 GitHub 연동돼 자동배포 중이던 것 재사용)에 3개 서비스:
+- **richman** — API 서비스. 도메인 `https://richman-production.up.railway.app`, 볼륨
+  `richman-volume`(`/data`, 5GB), 환경변수 `DB_PATH=/data/richman.db`, `API_KEY` 설정 완료.
+  Dockerfile 빌드 성공 (Root Directory가 이미 `backend/`로 잡혀 있어 COPY 경로를 그에 맞춤 —
+  저장소 루트 `Dockerfile`/`railway.toml` 참고). US/KR 백필 완료, `/health`·`/dashboard` 응답 확인.
+- **richman-cron-kr**, **richman-cron-us** — `curlimages/curl:latest` 기반 경량 트리거 서비스,
+  `API_KEY` 변수까지는 CLI로 설정 완료. **Custom Start Command와 Cron Schedule은 Railway CLI가
+  지원하지 않아 대시보드에서 수동 설정 필요** (docs/05 §3 참고, 정확한 값 명시돼 있음) — 이
+  두 필드 4칸이 유일하게 남은 수동 작업.
+- API_KEY 실제 값은 보안상 이 세션의 도구 출력에 남기지 않음 — 사용자가 직접
+  `railway variable list --kv -s richman` (본인 터미널) 또는 Railway 대시보드에서 확인.
+
 ## 통합 검증 기록
 
 - 백엔드↔iOS 계약 교차 검증: local_trend 타입 불일치(숫자 vs 문자열) 발견 →
