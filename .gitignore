@@ -14,3 +14,6 @@ ios/RichSignal.xcodeproj/
 ios/build/
 *.xcuserstate
 .DS_Store
+
+# XcodeGen이 생성하는 산출물
+ios/RichSignal/Info.plist
