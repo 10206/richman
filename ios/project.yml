@@ -21,8 +21,11 @@ targets:
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"          # iPhone 전용
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        # 개인용 사이드로딩: Xcode에서 본인 개발팀(Personal Team) 선택 후 자동 서명
+        # 앱 아이콘 (Assets.xcassets/AppIcon.appiconset)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # 개인용 사이드로딩: 본인 개발팀(Personal Team) 자동 서명
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: S93D25N8GG
     info:
       path: RichSignal/Info.plist
       properties:
