@@ -153,3 +153,33 @@ class TestAuth:
         # API_KEY 미설정 → 원격 잡 실행 자체가 비활성화 (403)
         r = client.post("/api/v1/jobs/run?market=US")
         assert r.status_code == 403
+
+
+class TestCalendar:
+    def test_macro_events_deterministic(self):
+        from app.data import market_calendar as mc
+        ev = mc.macro_events(2026, 7)
+        assert len(ev) > 0
+        # 모든 거시 이벤트는 예상(confirmed=False), 해당 월
+        assert all(e["confirmed"] is False for e in ev)
+        assert all(e["date"].startswith("2026-07") for e in ev)
+        # 미국 고용보고서 = 첫째 주 금요일 (2026-07-03)
+        nfp = [e for e in ev if "고용보고서" in e["title"]]
+        assert nfp and nfp[0]["date"] == "2026-07-03"
+        # 미국/한국 둘 다 포함
+        assert {"US", "KR"} <= {e["market"] for e in ev}
+
+    def test_calendar_endpoint(self, client):
+        r = client.get("/api/v1/calendar?month=2026-07")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["month"] == "2026-07"
+        assert isinstance(body["events"], list) and len(body["events"]) > 0
+        e = body["events"][0]
+        assert {"date", "market", "category", "title", "importance", "confirmed"} <= set(e)
+        # 날짜 오름차순 정렬
+        dates = [x["date"] for x in body["events"]]
+        assert dates == sorted(dates)
+
+    def test_calendar_bad_month(self, client):
+        assert client.get("/api/v1/calendar?month=2026-13").status_code == 422

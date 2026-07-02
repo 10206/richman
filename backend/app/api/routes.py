@@ -206,6 +206,39 @@ def notifications_ack(request: Request, body: dict = Body(...)) -> dict:
     return {"acked": _store(request).ack_notifications(ids)}
 
 
+# 캘린더 캐시: (year, month, 오늘) → events. AV 실적 호출을 일 1회로 제한.
+_calendar_cache: dict[tuple[int, int, str], list[dict]] = {}
+
+
+@router.get("/calendar")
+def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict:
+    """이달의 경제 캘린더 (미국/한국 실적 + 거시 지표 발표).
+
+    month: "YYYY-MM" (없으면 서버 기준 현재 월). 실적은 AV 확정일, 거시는 정례 주기 예상.
+    """
+    from app.data import market_calendar as mc
+
+    now = datetime.now(timezone.utc)
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+            assert 1 <= mon <= 12
+        except (ValueError, AssertionError):
+            raise HTTPException(status_code=422, detail="month은 'YYYY-MM' 형식이어야 함")
+    else:
+        year, mon = now.year, now.month
+
+    cache_key = (year, mon, now.date().isoformat())
+    events = _calendar_cache.get(cache_key)
+    if events is None:
+        av_key = request.app.state.settings.alphavantage_api_key
+        events = mc.month_calendar(year, mon, av_key)
+        _calendar_cache.clear()  # 하루 전날 캐시 정리
+        _calendar_cache[cache_key] = events
+
+    return {"month": f"{year:04d}-{mon:02d}", "events": events}
+
+
 @router.post("/jobs/run")
 def jobs_run(
     request: Request,

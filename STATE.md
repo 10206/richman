@@ -78,6 +78,8 @@ Supabase 무료 티어 프로젝트 개수 한도에 걸림 → 사용자가 SQL
 - `local_trend`는 문자열 "bull"|"neutral"|"bear" (엔진 내부 수치 1.0/0.5/0.0을 API 계층에서 변환)
 - `GET /api/v1/notifications/pending` → `{items: [{id, created_at, market, sector, event_type, title, body, immediate}]}`
 - `POST /api/v1/notifications/ack` body `{ids: [int]}` → `{acked: n}`
+- `GET /api/v1/calendar?month=YYYY-MM` → `{month, events: [{date, market(US|KR), category(earnings|macro), title, importance(1~3), confirmed(bool), sector?}]}`
+  (실적=AV 확정일 confirmed=true, 거시=정례주기 예상 confirmed=false. month 없으면 현재 월)
 - `POST /api/v1/jobs/run?market=KR|US` (키 필수) → 파이프라인 실행 결과 요약
 - 날짜는 "YYYY-MM-DD", 시각은 ISO8601 UTC. sector 값: semiconductor|robotics|power|healthcare|gold|bonds
 
