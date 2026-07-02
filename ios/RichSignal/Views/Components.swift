@@ -1,0 +1,238 @@
+import SwiftUI
+
+// 공용 컴포넌트 — 색약 대응 원칙: 색상만으로 의미를 전달하지 않고 항상 아이콘/텍스트 병용
+
+// MARK: - 신호 배지
+
+struct SignalBadge: View {
+    let signal: SignalType
+    var compact = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: signal.iconName)
+                .font(compact ? .caption2 : .caption)
+            if !compact {
+                Text(signal.label)
+                    .font(.caption.weight(.semibold))
+            }
+        }
+        .foregroundStyle(signal.color)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, 4)
+        .background(signal.color.opacity(0.15), in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("신호 \(signal.label)")
+    }
+}
+
+/// 카드 좌측의 큰 신호 아이콘
+struct SignalIcon: View {
+    let signal: SignalType
+
+    var body: some View {
+        Image(systemName: signal.iconName)
+            .font(.title2)
+            .foregroundStyle(signal.color)
+            .frame(width: 40, height: 40)
+            .background(signal.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
+            .accessibilityLabel("신호 \(signal.label)")
+    }
+}
+
+// MARK: - 국면 배지
+
+struct RegimeBadge: View {
+    let market: MarketCode
+    let regime: RegimeCode
+    var localTrend: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: regime.iconName)
+                Text(market.label)
+                    .font(.caption.weight(.bold))
+            }
+            .foregroundStyle(regime.color)
+
+            Text(regime.label)
+                .font(.footnote.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let localTrend {
+                Text("로컬 추세: \(LocalTrendDisplay.label(for: localTrend))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(regime.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(market.label) 시장, \(regime.label)")
+    }
+}
+
+// MARK: - 컴포넌트 미니 막대 (T/V/M 기여도)
+
+struct ComponentBars: View {
+    let snapshot: SectorSnapshot
+
+    private struct Row: Identifiable {
+        let id: String
+        let label: String
+        let weight: Double
+        let value: Double     // 0~1
+        let color: Color
+
+        var contribution: Double { weight * value * 100 }
+    }
+
+    private var rows: [Row] {
+        [
+            Row(id: "T", label: "추세", weight: snapshot.wTrend, value: snapshot.trend, color: .blue),
+            Row(id: "V", label: "거래량", weight: snapshot.wVolume, value: snapshot.volume, color: .teal),
+            Row(id: "M", label: "거시", weight: snapshot.wMacro, value: snapshot.macro, color: .purple),
+        ]
+    }
+
+    var body: some View {
+        let maxWeight = rows.map(\.weight).max() ?? 1
+        VStack(spacing: 4) {
+            ForEach(rows) { row in
+                HStack(spacing: 8) {
+                    Text(row.label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, alignment: .leading)
+
+                    // 트랙 길이 = 가중치, 채움 = 컴포넌트 값 → 채움 길이가 w×값 기여도
+                    GeometryReader { geo in
+                        let trackWidth = geo.size.width * (row.weight / maxWeight)
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color(.systemFill))
+                                .frame(width: trackWidth)
+                            Capsule()
+                                .fill(row.color)
+                                .frame(width: trackWidth * row.value)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    Text(String(format: "%.0f점", row.contribution))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, alignment: .trailing)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(row.label) 기여도 \(Int(row.contribution.rounded()))점")
+            }
+        }
+    }
+}
+
+// MARK: - 점수 변화 라벨
+
+struct ScoreDeltaLabel: View {
+    let delta: Double?
+
+    var body: some View {
+        if let delta {
+            HStack(spacing: 2) {
+                Image(systemName: iconName(delta))
+                Text(String(format: "%+.1f", delta))
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            .foregroundStyle(color(delta))
+            .accessibilityLabel("어제 대비 \(String(format: "%+.1f", delta))점")
+        } else {
+            Text("—")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func iconName(_ d: Double) -> String {
+        if d > 0.05 { return "arrow.up" }
+        if d < -0.05 { return "arrow.down" }
+        return "minus"
+    }
+
+    private func color(_ d: Double) -> Color {
+        if d > 0.05 { return .green }
+        if d < -0.05 { return .red }
+        return .secondary
+    }
+}
+
+// MARK: - 국면 bias 방향 (-2 ~ +2)
+
+struct BiasDirectionLabel: View {
+    let bias: Int
+
+    private var info: (icon: String, text: String, color: Color) {
+        switch bias {
+        case 2: ("arrow.up", "강한 강세 방향", .green)
+        case 1: ("arrow.up.right", "강세 방향", .green)
+        case -1: ("arrow.down.right", "약세 방향", .red)
+        case -2: ("arrow.down", "강한 약세 방향", .red)
+        default: ("arrow.right", "중립 방향", .secondary)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: info.icon)
+            Text(info.text)
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(info.color)
+        .accessibilityLabel("현재 국면에서 \(info.text)")
+    }
+}
+
+// MARK: - 뉴스 감성 아이콘
+
+struct SentimentIcon: View {
+    let sentiment: Double
+
+    private var info: (icon: String, color: Color, label: String) {
+        if sentiment > 0.15 { return ("face.smiling", .green, "긍정") }
+        if sentiment < -0.15 { return ("cloud.rain", .red, "부정") }
+        return ("minus.circle", .secondary, "중립")
+    }
+
+    var body: some View {
+        Image(systemName: info.icon)
+            .foregroundStyle(info.color)
+            .accessibilityLabel("감성 \(info.label)")
+    }
+}
+
+// MARK: - 에러/빈 상태
+
+struct InlineErrorView: View {
+    let message: String
+    let retry: () async -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("다시 시도") {
+                Task { await retry() }
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+}

@@ -6,11 +6,42 @@
 ## 페이즈
 
 - [x] P1. 설계 문서 (docs/00~03)
-- [ ] P2. 시그널 엔진 — 순수 로직 (backend/app/engine) + 단위 테스트
-- [ ] P3. 백테스트 (실데이터, stooq/FRED) → docs/04 리포트, 임계값 튜닝
-- [ ] P4. 데이터 클라이언트 (KIS/ECOS/FRED/뉴스) + FastAPI + Supabase 스키마 + 배치 잡
-- [ ] P5. iOS SwiftUI 앱 (ios/) — XcodeGen 프로젝트
-- [ ] P6. 배포/설치 가이드 (docs/05~06) + 사용자 판단 필요 항목 (docs/07)
+- [x] P2. 시그널 엔진 — 순수 로직 (backend/app/engine) + 단위 테스트 (21개 통과)
+- [x] P3. 백테스트 (yfinance/FRED 12년) → docs/04 리포트, 파라미터 확정
+- [x] P4. 데이터 클라이언트 + FastAPI + Supabase 스키마 + 배치 잡 — pytest 46개 통과,
+  키 없이 US/KR E2E 백필 성공(SQLite), API 스모크 통과
+- [x] P5. iOS SwiftUI 앱 (ios/) — 14파일, swiftc -parse 전체 통과, 모의 데이터 모드 내장
+- [x] P6. 배포/설치 가이드 (docs/05~06) + 사용자 판단 항목 (docs/07) + README
+
+## 통합 검증 기록
+
+- 백엔드↔iOS 계약 교차 검증: local_trend 타입 불일치(숫자 vs 문자열) 발견 →
+  API 계층에서 "bull"/"neutral"/"bear" 문자열로 변환하도록 수정 완료 (routes.py)
+- 남은 실검증 항목 (환경 제약상 이 머신에서 불가):
+  1. Xcode 첫 빌드 (iOS 전용 API 타입 체크) — 사용자 머신에서 xcodegen generate 후 ⌘R
+  2. KIS/ECOS/Supabase 실키 투입 후 첫 파이프라인 실행
+  3. 한국 데이터 백테스트 재검증 (docs/04 §6)
+
+## API 계약 (P4 백엔드 ↔ P5 iOS 공유, 변경 금지)
+
+- 인증: `X-API-Key` 헤더 (env `API_KEY` 미설정 시 인증 생략 — 로컬 개발)
+- `GET /health` → `{"status":"ok"}`
+- `GET /api/v1/dashboard` →
+  `{as_of, generated_at, markets: {US: {regime, regime_label, r_score, l_score, local_trend}, KR: {...}},
+    sectors: [{market, sector, label, score, trend, volume, macro, w_trend, w_volume, w_macro,
+               signal(hold|cash|keep), stance(LONG|CASH), prev_signal, signal_changed(bool), score_delta_1d}]}`
+- `GET /api/v1/sectors/{market}/{sector}/history?days=180` →
+  `{items: [{date, score, trend, volume, macro, signal, stance, regime}]}`
+- `GET /api/v1/sectors/{market}/{sector}/detail` →
+  `{sector: <dashboard 항목과 동일>, regime_bias: int(-2~2), macro_raw: {y_short, y_long, y_long_chg_63d,
+    vix, hy_spread, real_rate?, dollar_index?, news_score?, news_z?}, news_summary: str|null,
+    news_items: [{date, title, url, source, sentiment}]}`
+- `GET /api/v1/regime/history?market=US&days=365` → `{items: [{date, regime, r_score, l_score, local_trend}]}`
+- `local_trend`는 문자열 "bull"|"neutral"|"bear" (엔진 내부 수치 1.0/0.5/0.0을 API 계층에서 변환)
+- `GET /api/v1/notifications/pending` → `{items: [{id, created_at, market, sector, event_type, title, body, immediate}]}`
+- `POST /api/v1/notifications/ack` body `{ids: [int]}` → `{acked: n}`
+- `POST /api/v1/jobs/run?market=KR|US` (키 필수) → 파이프라인 실행 결과 요약
+- 날짜는 "YYYY-MM-DD", 시각은 ISO8601 UTC. sector 값: semiconductor|robotics|power|healthcare|gold|bonds
 
 ## 환경 제약 (확인됨)
 

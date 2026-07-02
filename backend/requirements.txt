@@ -9,3 +9,4 @@ supabase>=2.6
 python-dateutil>=2.9
 pytest>=8.0
 yfinance>=0.2.50
+anthropic>=0.40  # 뉴스 요약(표시용)에만 사용 — 코드에서 지연 import

@@ -1,0 +1,16 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# 로컬 데이터/시크릿 (커밋 금지)
+backend/richman.db
+backend/.kis_token.json
+backend/.env
+backend/backtest/cache/
+
+# iOS / Xcode
+ios/RichSignal.xcodeproj/
+ios/build/
+*.xcuserstate
+.DS_Store
