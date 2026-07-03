@@ -75,7 +75,7 @@ struct SectorDetailView: View {
                     BiasDirectionLabel(bias: detail.regimeBias)
                 }
 
-                RationaleNote(text: ScoreExplainer.overall(detail))
+                RationaleNote(text: ScoreExplainer.overall(detail, history: history))
             }
             .padding(.vertical, 4)
         }
@@ -89,7 +89,7 @@ struct SectorDetailView: View {
             DisclosureGroup {
                 componentRows(value: detail.sector.trend,
                               weight: detail.sector.wTrend)
-                RationaleNote(text: ScoreExplainer.trend(detail))
+                RationaleNote(text: ScoreExplainer.trend(detail, history: history))
             } label: {
                 componentHeader(label: "추세 (T)", color: .blue,
                                 contribution: detail.sector.trendContribution)
@@ -98,7 +98,7 @@ struct SectorDetailView: View {
             DisclosureGroup {
                 componentRows(value: detail.sector.volume,
                               weight: detail.sector.wVolume)
-                RationaleNote(text: ScoreExplainer.volume(detail))
+                RationaleNote(text: ScoreExplainer.volume(detail, history: history))
             } label: {
                 componentHeader(label: "거래량 (V)", color: .teal,
                                 contribution: detail.sector.volumeContribution)
@@ -108,7 +108,7 @@ struct SectorDetailView: View {
                 componentRows(value: detail.sector.macro,
                               weight: detail.sector.wMacro)
                 macroRawRows(detail.macroRaw)
-                RationaleNote(text: ScoreExplainer.macro(detail))
+                RationaleNote(text: ScoreExplainer.macro(detail, history: history))
             } label: {
                 componentHeader(label: "거시 (M)", color: .purple,
                                 contribution: detail.sector.macroContribution)
