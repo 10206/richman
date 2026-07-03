@@ -233,8 +233,11 @@ def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict
     cache_key = (year, mon, now.date().isoformat())
     events = _calendar_cache.get(cache_key)
     if events is None:
-        av_key = request.app.state.settings.alphavantage_api_key
-        events = mc.month_calendar(year, mon, av_key)
+        settings = request.app.state.settings
+        events = mc.month_calendar(
+            year, mon, settings.alphavantage_api_key,
+            fmp_key=settings.fmp_api_key, today_iso=now.date().isoformat(),
+        )
         _calendar_cache.clear()  # 하루 전날 캐시 정리
         _calendar_cache[cache_key] = events
 

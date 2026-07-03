@@ -149,18 +149,66 @@ def earnings_events(year: int, month: int, api_key: str | None, timeout: float =
         release_time = {"bmo": "장 시작 전", "amc": "장 마감 후"}.get(tod)
         events.append({
             "date": d.isoformat(), "market": "US", "category": "earnings",
-            "title": f"{name} ({sym}) 실적", "sector": sector.value,
+            "title": f"{name} ({sym}) 실적", "sector": sector.value, "ticker": sym,
             "importance": 2, "confirmed": True,
             "release_time": release_time, "result": None,
         })
     return events
 
 
-def month_calendar(year: int, month: int, av_key: str | None) -> list[dict]:
-    """거시 + 실적 통합, 날짜·중요도 순 정렬."""
+# ---- 실적 서프라이즈 (Financial Modeling Prep, 무료 티어의 종목별 실적) ----
+_FMP_BASE = "https://financialmodelingprep.com/stable"
+
+
+def _fmp_earnings_result(symbol: str, report_date: str, api_key: str, timeout: float = 20.0) -> str | None:
+    """해당 종목의 report_date 실적 발표치 vs 예상치 → 'beat'|'meet'|'miss'|None(미발표)."""
+    resp = httpx.get(f"{_FMP_BASE}/earnings",
+                     params={"symbol": symbol, "apikey": api_key}, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, list):
+        return None
+    for row in data:
+        if row.get("date") != report_date:
+            continue
+        act, est = row.get("epsActual"), row.get("epsEstimated")
+        if act is None or est is None:
+            return None
+        tol = 0.005  # EPS 반올림 오차 — 이보다 크면 상회/하회, 이내면 부합
+        if act > est + tol:
+            return "beat"
+        if act < est - tol:
+            return "miss"
+        return "meet"
+    return None
+
+
+def enrich_earnings_results(events: list[dict], fmp_key: str | None, today_iso: str) -> None:
+    """이미 발표일이 지난 실적 이벤트에 예상치 대비 결과(result)를 채운다 (제자리 수정)."""
+    if not fmp_key:
+        return
+    for e in events:
+        if e.get("category") != "earnings" or not e.get("ticker"):
+            continue
+        if e["date"] > today_iso:   # 아직 발표 전
+            continue
+        try:
+            r = _fmp_earnings_result(e["ticker"], e["date"], fmp_key)
+            if r:
+                e["result"] = r
+        except Exception:  # noqa: BLE001 — 개별 실패는 무시, 나머지 계속
+            continue
+
+
+def month_calendar(year: int, month: int, av_key: str | None,
+                   fmp_key: str | None = None, today_iso: str | None = None) -> list[dict]:
+    """거시 + 실적 통합, 날짜·중요도 순 정렬. fmp_key 있으면 발표된 실적에 상회/부합/하회 채움."""
     events = macro_events(year, month)
     try:
-        events += earnings_events(year, month, av_key)
+        earnings = earnings_events(year, month, av_key)
+        if today_iso:
+            enrich_earnings_results(earnings, fmp_key, today_iso)
+        events += earnings
     except Exception:  # noqa: BLE001 — 실적 실패해도 거시 캘린더는 제공
         pass
     events.sort(key=lambda e: (e["date"], -e["importance"]))

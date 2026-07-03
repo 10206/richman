@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # 뉴스 요약 (Claude Haiku, 표시용 — 신호 계산에는 사용 금지)
     anthropic_api_key: str | None = None
 
+    # 실적 서프라이즈(예상치 상회/부합/하회) — 캘린더용. Financial Modeling Prep 무료 티어.
+    fmp_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
