@@ -81,38 +81,54 @@ _BOK_2026 = ["2026-01-15", "2026-02-26", "2026-04-09", "2026-05-28",
              "2026-07-09", "2026-08-27", "2026-10-15", "2026-11-26"]
 
 
-# FRED 릴리스 ID — 있으면 확정 발표일로 업그레이드 (없는 지표는 ISM/FOMC 등은 예상 유지)
-_FRED_RELEASE_ID = {
-    "고용보고서(비농업 고용)": 50,
-    "소비자물가(CPI)": 10,
-    "생산자물가(PPI)": 46,
-    "소매판매": 9,
-    "개인소비지출(PCE) 물가": 54,
-    "GDP(속보치)": 53,
+# 미국 거시 지표 → FRED (릴리스ID, 데이터 시리즈, units, 헤드라인 포맷).
+# 확정 발표일(release_id) + 실제 발표값(series/units)을 함께 붙인다.
+_FRED_INDICATOR: dict[str, tuple[int, str, str, "callable"]] = {
+    "고용보고서(비농업 고용)": (50, "PAYEMS", "chg", lambda v: f"비농업 {v/10:+.1f}만명"),
+    "소비자물가(CPI)": (10, "CPIAUCSL", "pc1", lambda v: f"전년비 {v:+.1f}%"),
+    "생산자물가(PPI)": (46, "PPIFIS", "pc1", lambda v: f"전년비 {v:+.1f}%"),
+    "소매판매": (9, "RSAFS", "pch", lambda v: f"전월비 {v:+.1f}%"),
+    "개인소비지출(PCE) 물가": (54, "PCEPI", "pc1", lambda v: f"전년비 {v:+.1f}%"),
+    "GDP(속보치)": (53, "A191RL1Q225SBEA", "lin", lambda v: f"연율 {v:+.1f}%"),
 }
 _FRED_DATES_URL = "https://api.stlouisfed.org/fred/release/dates"
+_FRED_OBS_URL = "https://api.stlouisfed.org/fred/series/observations"
 
 
-def _fred_release_date(release_id: int, year: int, month: int, api_key: str, timeout: float = 15.0) -> str | None:
-    """FRED가 공표한 해당 월 릴리스(발표) 확정일. 없으면 None."""
+def _fred_release_dates(release_id: int, api_key: str, released_only: bool = False,
+                        timeout: float = 15.0) -> list[str]:
+    """릴리스 발표일 목록(desc). released_only=True면 실제 데이터가 나온 발표일만."""
     resp = httpx.get(_FRED_DATES_URL, params={
         "release_id": release_id, "api_key": api_key, "file_type": "json",
-        "include_release_dates_with_no_data": "true", "sort_order": "desc", "limit": 24,
+        "include_release_dates_with_no_data": "false" if released_only else "true",
+        "sort_order": "desc", "limit": 24,
     }, timeout=timeout)
     resp.raise_for_status()
-    ym = f"{year:04d}-{month:02d}"
-    for x in resp.json().get("release_dates", []):
-        if x.get("date", "")[:7] == ym:
-            return x["date"]
+    return [x.get("date", "") for x in resp.json().get("release_dates", [])]
+
+
+def _fred_actual(series: str, units: str, asof: str, api_key: str, timeout: float = 15.0) -> float | None:
+    """asof 시점에 알려진 최신 관측값(해당 발표로 공개된 값). 없으면 None."""
+    resp = httpx.get(_FRED_OBS_URL, params={
+        "series_id": series, "api_key": api_key, "file_type": "json", "units": units,
+        "realtime_start": asof, "realtime_end": asof, "sort_order": "desc", "limit": 1,
+    }, timeout=timeout)
+    resp.raise_for_status()
+    obs = resp.json().get("observations", [])
+    if obs and obs[0].get("value") not in (".", "", None):
+        try:
+            return float(obs[0]["value"])
+        except ValueError:
+            return None
     return None
 
 
-def macro_events(year: int, month: int, fred_key: str | None = None) -> list[dict]:
+def macro_events(year: int, month: int, fred_key: str | None = None,
+                 today_iso: str | None = None) -> list[dict]:
     """해당 월의 거시 지표 발표 일정.
 
-    fred_key 있으면 미국 지표(고용/CPI/PPI/소매판매/PCE/GDP)를 FRED 확정 발표일로
-    업그레이드(confirmed=True). 없거나 실패하면 정례 주기 예상일(confirmed=False) 유지.
-    ISM/FOMC/한국 지표는 예상 유지. result는 실적 전용이라 거시는 None.
+    fred_key 있으면 미국 지표(고용/CPI/PPI/소매판매/PCE/GDP)를 FRED 확정 발표일(confirmed=True)로
+    업그레이드하고, 이미 발표된 지표엔 실제 발표값(actual)을 채운다. ISM/FOMC/한국은 예상 유지.
     """
     events: list[dict] = []
 
@@ -121,7 +137,7 @@ def macro_events(year: int, month: int, fred_key: str | None = None) -> list[dic
             events.append({
                 "date": d.isoformat(), "market": market, "category": "macro",
                 "title": title, "importance": importance, "confirmed": False,
-                "release_time": release_time, "result": None,
+                "release_time": release_time, "result": None, "actual": None,
             })
 
     for market, title, imp, rtime, rule in _MACRO_RULES:
@@ -136,18 +152,29 @@ def macro_events(year: int, month: int, fred_key: str | None = None) -> list[dic
     for iso in _BOK_2026:
         add("KR", "한국은행 금통위 정책금리 결정", 3, "09:00 KST", date.fromisoformat(iso))
 
-    # FRED 확정 발표일로 업그레이드
     if fred_key:
+        ym = f"{year:04d}-{month:02d}"
         for e in events:
-            rid = _FRED_RELEASE_ID.get(e["title"])
-            if rid is None or e["market"] != "US":
+            cfg = _FRED_INDICATOR.get(e["title"])
+            if cfg is None or e["market"] != "US":
                 continue
+            rid, series, units, fmt = cfg
             try:
-                d = _fred_release_date(rid, year, month, fred_key)
-                if d:
-                    e["date"] = d
-                    e["confirmed"] = True
-            except Exception:  # noqa: BLE001 — 실패 시 예상일 유지
+                # 1) 확정 발표일 (예정 포함)
+                scheduled = _fred_release_dates(rid, fred_key, released_only=False)
+                d = next((x for x in scheduled if x[:7] == ym), None)
+                if not d:
+                    continue
+                e["date"] = d
+                e["confirmed"] = True
+                # 2) 이미 발표된 날이면 실제 발표값
+                if today_iso and d <= today_iso:
+                    released = set(_fred_release_dates(rid, fred_key, released_only=True))
+                    if d in released:
+                        v = _fred_actual(series, units, d, fred_key)
+                        if v is not None:
+                            e["actual"] = fmt(v)
+            except Exception:  # noqa: BLE001 — 실패 시 예상일/값없음 유지
                 continue
 
     return events
@@ -257,7 +284,7 @@ def month_calendar(year: int, month: int, av_key: str | None,
     fmp_key 있으면 발표된 실적에 상회/부합/하회 채움.
     반환: (events, degraded). degraded=True면 실적 수집 실패(한도 등) — 호출측은 캐시하지 말 것.
     """
-    events = macro_events(year, month, fred_key=fred_key)
+    events = macro_events(year, month, fred_key=fred_key, today_iso=today_iso)
     degraded = False
     if av_key:
         try:
