@@ -137,3 +137,84 @@ SECTOR_PROXIES: dict[Market, dict[Sector, str]] = {
         Sector.BONDS: "TLT",
     },
 }
+
+
+# 섹터 구성 메타데이터 (상세 화면 표시용) — 프록시 ETF의 정식명 + 자산유형 + 대표 구성종목.
+# constituents는 '대표 예시'(정확한 편입비중이 아님). 금/국채는 실물·채권이라 종목 없음.
+class AssetType(str, Enum):
+    EQUITY_ETF = "equity_etf"   # 주식 바스켓 ETF
+    COMMODITY = "commodity"     # 실물 (금)
+    BOND = "bond"               # 채권
+
+
+SECTOR_ASSET_TYPE: dict[Sector, AssetType] = {
+    Sector.SEMICONDUCTOR: AssetType.EQUITY_ETF,
+    Sector.ROBOTICS: AssetType.EQUITY_ETF,
+    Sector.POWER: AssetType.EQUITY_ETF,
+    Sector.HEALTHCARE: AssetType.EQUITY_ETF,
+    Sector.GOLD: AssetType.COMMODITY,
+    Sector.BONDS: AssetType.BOND,
+}
+
+PROXY_NAMES: dict[Market, dict[Sector, str]] = {
+    Market.KR: {
+        Sector.SEMICONDUCTOR: "KODEX 반도체",
+        Sector.ROBOTICS: "KODEX K-로봇액티브",
+        Sector.POWER: "KODEX AI전력핵심설비",
+        Sector.HEALTHCARE: "TIGER 헬스케어",
+        Sector.GOLD: "ACE KRX금현물",
+        Sector.BONDS: "KOSEF 국고채10년",
+    },
+    Market.US: {
+        Sector.SEMICONDUCTOR: "VanEck 반도체 (SMH)",
+        Sector.ROBOTICS: "Global X 로봇·AI (BOTZ)",
+        Sector.POWER: "First Trust 스마트그리드 (GRID)",
+        Sector.HEALTHCARE: "Health Care Select (XLV)",
+        Sector.GOLD: "SPDR 골드 (GLD)",
+        Sector.BONDS: "iShares 미국 20년+ 국채 (TLT)",
+    },
+}
+
+# 대표 구성종목 (ticker, 이름). ticker가 빈 문자열이면 이름만 표시(해외 비상장 등).
+SECTOR_CONSTITUENTS: dict[Market, dict[Sector, list[tuple[str, str]]]] = {
+    Market.KR: {
+        Sector.SEMICONDUCTOR: [("005930", "삼성전자"), ("000660", "SK하이닉스"),
+                               ("042700", "한미반도체"), ("000990", "DB하이텍"), ("058470", "리노공업")],
+        Sector.ROBOTICS: [("454910", "두산로보틱스"), ("277810", "레인보우로보틱스"),
+                          ("005930", "삼성전자"), ("066570", "LG전자"), ("058610", "에스피지")],
+        Sector.POWER: [("298040", "효성중공업"), ("267260", "HD현대일렉트릭"),
+                       ("010120", "LS ELECTRIC"), ("001440", "대한전선"), ("033100", "제룡전기")],
+        Sector.HEALTHCARE: [("207940", "삼성바이오로직스"), ("068270", "셀트리온"),
+                            ("000100", "유한양행"), ("128940", "한미약품"), ("326030", "SK바이오팜")],
+        Sector.GOLD: [],
+        Sector.BONDS: [],
+    },
+    Market.US: {
+        Sector.SEMICONDUCTOR: [("NVDA", "엔비디아"), ("TSM", "TSMC"), ("AVGO", "브로드컴"),
+                               ("AMD", "AMD"), ("ASML", "ASML")],
+        Sector.ROBOTICS: [("NVDA", "엔비디아"), ("ISRG", "인튜이티브서지컬"), ("ABB", "ABB"),
+                          ("", "키엔스"), ("", "화낙")],
+        Sector.POWER: [("ETN", "이튼"), ("GEV", "GE버노바"), ("PWR", "콴타서비스"),
+                       ("ABB", "ABB"), ("", "슈나이더일렉트릭")],
+        Sector.HEALTHCARE: [("LLY", "일라이릴리"), ("UNH", "유나이티드헬스"), ("JNJ", "존슨앤드존슨"),
+                            ("ABBV", "애브비"), ("MRK", "머크")],
+        Sector.GOLD: [],
+        Sector.BONDS: [],
+    },
+}
+
+
+def sector_basket(market: Market, sector: Sector) -> dict:
+    """상세 화면용 섹터 구성 정보 (프록시 ETF + 자산유형 + 대표 구성종목)."""
+    asset = SECTOR_ASSET_TYPE[sector]
+    note = {
+        AssetType.COMMODITY: "실물 자산(금)을 추종하는 ETF로, 개별 구성종목이 없습니다.",
+        AssetType.BOND: "국채(채권)를 추종하는 ETF로, 개별 구성종목이 없습니다.",
+    }.get(asset)
+    return {
+        "market": market.value,
+        "proxy": {"ticker": SECTOR_PROXIES[market][sector], "name": PROXY_NAMES[market][sector]},
+        "asset_type": asset.value,
+        "constituents": [{"ticker": t, "name": n} for t, n in SECTOR_CONSTITUENTS[market][sector]],
+        "note": note,
+    }

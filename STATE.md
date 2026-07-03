@@ -72,8 +72,9 @@ Supabase 무료 티어 프로젝트 개수 한도에 걸림 → 사용자가 SQL
   `{items: [{date, score, trend, volume, macro, signal, stance, regime}]}`
 - `GET /api/v1/sectors/{market}/{sector}/detail` →
   `{sector: <dashboard 항목과 동일>, regime_bias: int(-2~2), macro_raw: {y_short, y_long, y_long_chg_63d,
-    vix, hy_spread, real_rate?, dollar_index?, news_score?, news_z?}, news_summary: str|null,
-    news_items: [{date, title, url, source, sentiment}]}`
+    vix, hy_spread, real_rate?, dollar_index?, news_score?, news_z?},
+    basket: {market, proxy:{ticker,name}, asset_type(equity_etf|commodity|bond), constituents:[{ticker,name}], note?},
+    news_summary: str|null, news_items: [{date, title, url, source, sentiment}]}`
 - `GET /api/v1/regime/history?market=US&days=365` → `{items: [{date, regime, r_score, l_score, local_trend}]}`
 - `local_trend`는 문자열 "bull"|"neutral"|"bear" (엔진 내부 수치 1.0/0.5/0.0을 API 계층에서 변환)
 - `GET /api/v1/notifications/pending` → `{items: [{id, created_at, market, sector, event_type, title, body, immediate}]}`

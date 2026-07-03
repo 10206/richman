@@ -22,6 +22,7 @@ from app.engine.sectors import (
     Market,
     Regime,
     Sector,
+    sector_basket,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -168,6 +169,7 @@ def sector_detail(request: Request, market: str, sector: str) -> dict:
         "sector": item,
         "regime_bias": REGIME_BIAS[s][regime] if regime else 0,
         "macro_raw": macro_raw,
+        "basket": sector_basket(m, s),
         "news_summary": store.get_news_summary(m.value, s.value),
         "news_items": store.get_news_items(m.value, s.value, limit=20),
     }
