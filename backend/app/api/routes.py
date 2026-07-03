@@ -237,7 +237,8 @@ def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict
         settings = request.app.state.settings
         events, degraded = mc.month_calendar(
             year, mon, settings.alphavantage_api_key,
-            fmp_key=settings.fmp_api_key, today_iso=now.date().isoformat(),
+            fmp_key=settings.fmp_api_key, fred_key=settings.fred_api_key,
+            today_iso=now.date().isoformat(),
         )
         if not degraded:                 # 실적 실패 시엔 캐시하지 않음 (다음 요청/내일 재시도)
             _calendar_cache.clear()
