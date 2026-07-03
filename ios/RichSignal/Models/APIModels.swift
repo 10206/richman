@@ -308,7 +308,8 @@ struct CalendarEvent: Codable, Identifiable {
     let importance: Int          // 1~3 (3=최상)
     let confirmed: Bool          // true=확정(실적), false=예상(거시 정례주기)
     let releaseTime: String?     // 관례 발표시각 (거시) / 장전·장후 (실적)
-    let result: CalendarResult?  // 예상치 대비 상회/부합/하회 (소스 연결 전엔 null)
+    let result: CalendarResult?  // 예상치 대비 상회/부합/하회 (실적, 컨센서스 연결 시)
+    let actual: String?          // 거시 지표 실제 발표값 (예: "비농업 +5.7만명", 발표 후)
 
     var id: String { "\(date)-\(market.rawValue)-\(title)" }
     var dateValue: Date { APIDate.parse(date) }

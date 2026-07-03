@@ -325,15 +325,25 @@ struct CalendarEventRow: View {
                 .padding(.vertical, 2)
                 .background(marketColor.opacity(0.15), in: Capsule())
 
-            // 카테고리 아이콘 + 제목 (+ 오늘이면 발표시간 둘째 줄)
+            // 카테고리 아이콘 + 제목(+중요 딱지) (+ 오늘이면 발표시간 둘째 줄)
             Image(systemName: event.category.iconName)
                 .font(.caption)
                 .foregroundStyle(event.category == .earnings ? Color("AccentColor") : .secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title)
-                    .font(.subheadline)
-                    .foregroundStyle(isPast ? .secondary : .primary)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(event.title)
+                        .font(.subheadline)
+                        .foregroundStyle(isPast ? .secondary : .primary)
+                        .lineLimit(1)
+                    if event.importance >= 3 {
+                        Text("중요!")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(.orange.opacity(0.15), in: Capsule())
+                    }
+                }
                 if isToday, let rt = event.releaseTime {
                     Label(rt, systemImage: "clock")
                         .font(.caption2)
@@ -343,20 +353,21 @@ struct CalendarEventRow: View {
 
             Spacer(minLength: 4)
 
-            // 결과(상회/부합/하회) 우선, 없으면 예상/중요도 표시
+            // 실적: 상회/부합/하회 칩 / 거시: 실제 발표값 / 미발표 거시: 예상
             if let result = event.result {
                 Label(result.label, systemImage: result.iconName)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(result.color)
                     .labelStyle(.titleAndIcon)
+            } else if let actual = event.actual {
+                Text(actual)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
             } else if !event.confirmed {
                 Text("예상")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-            } else if event.importance >= 3 {
-                Image(systemName: "exclamationmark")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.orange)
             }
         }
         .padding(.vertical, isToday ? 4 : 2)
@@ -370,8 +381,11 @@ struct CalendarEventRow: View {
         if isToday { parts.append("오늘") }
         parts.append(event.category.label)
         parts.append(event.title)
+        if event.importance >= 3 { parts.append("중요") }
         if isToday, let rt = event.releaseTime { parts.append("발표 \(rt)") }
-        if let r = event.result { parts.append(r.label) } else if !event.confirmed { parts.append("예상") }
+        if let r = event.result { parts.append(r.label) }
+        else if let a = event.actual { parts.append("결과 \(a)") }
+        else if !event.confirmed { parts.append("예상") }
         return parts.joined(separator: ", ")
     }
 }
