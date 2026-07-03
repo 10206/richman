@@ -12,11 +12,14 @@ from __future__ import annotations
 import calendar as _cal
 import csv
 import io
+import logging
 from datetime import date
 
 import httpx
 
 from app.engine.sectors import Sector
+
+logger = logging.getLogger(__name__)
 
 _AV_URL = "https://www.alphavantage.co/query"
 
@@ -209,7 +212,7 @@ def month_calendar(year: int, month: int, av_key: str | None,
         if today_iso:
             enrich_earnings_results(earnings, fmp_key, today_iso)
         events += earnings
-    except Exception:  # noqa: BLE001 — 실적 실패해도 거시 캘린더는 제공
-        pass
+    except Exception as e:  # noqa: BLE001 — 실적 실패해도 거시 캘린더는 제공
+        logger.warning("[calendar] 실적 수집 실패 (%s-%02d): %r", year, month, e)
     events.sort(key=lambda e: (e["date"], -e["importance"]))
     return events
