@@ -236,9 +236,20 @@ def calendar_endpoint(request: Request, month: str | None = Query(None),
         out: dict = {"av_key_set": bool(settings.alphavantage_api_key),
                      "fmp_key_set": bool(settings.fmp_api_key)}
         try:
+            import httpx as _hx
+            r = _hx.get("https://www.alphavantage.co/query",
+                        params={"function": "EARNINGS_CALENDAR", "horizon": "3month",
+                                "apikey": settings.alphavantage_api_key or ""}, timeout=30)
+            txt = r.text
+            out["av_status"] = r.status_code
+            out["av_len"] = len(txt)
+            out["av_head"] = txt[:180]
+            out["av_key_tail"] = (settings.alphavantage_api_key or "")[-4:]
+        except Exception as e:  # noqa: BLE001
+            out["av_error"] = repr(e)
+        try:
             raw = mc.earnings_events(year, mon, settings.alphavantage_api_key)
             out["earnings_count"] = len(raw)
-            out["sample"] = [e.get("title") for e in raw[:3]]
         except Exception as e:  # noqa: BLE001
             out["earnings_error"] = repr(e)
         return out
