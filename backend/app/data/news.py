@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 import pandas as pd
@@ -21,6 +21,7 @@ import pandas as pd
 from app.engine.sectors import Sector
 
 _AV_URL = "https://www.alphavantage.co/query"
+_FINNHUB_URL = "https://finnhub.io/api/v1/company-news"
 
 # 섹터 → Alpha Vantage 검색 파라미터.
 # tickers: 섹터 대표 대형주 (AV 뉴스 커버리지가 확실한 종목 위주)
@@ -104,6 +105,49 @@ def fetch_us_news(
                 "relevance": relevance,
             }
         )
+    return items
+
+
+# Finnhub 뉴스용 섹터 대표 티커 (표시 강화 전용 — 1콜/섹터)
+_FINNHUB_TICKER: dict[Sector, str] = {
+    Sector.SEMICONDUCTOR: "NVDA", Sector.ROBOTICS: "ISRG", Sector.POWER: "NEE",
+    Sector.HEALTHCARE: "UNH", Sector.GOLD: "NEM", Sector.BONDS: "TLT",
+}
+
+
+def fetch_finnhub_news(sector: Sector, api_key: str | None, days: int = 21,
+                       limit: int = 8, timeout: float = 30.0) -> list[dict] | None:
+    """섹터 대표 종목의 최신 뉴스 (표시용). Finnhub 무료 — 감성 미제공이라 sentiment=0.
+
+    반환 항목: {date, title, url, source, sentiment(0), relevance(낮음)}. 키 없으면 None.
+    """
+    if not api_key:
+        return None
+    sym = _FINNHUB_TICKER.get(sector)
+    if not sym:
+        return None
+    now = datetime.now()
+    resp = httpx.get(_FINNHUB_URL, params={
+        "symbol": sym, "from": (now - timedelta(days=days)).strftime("%Y-%m-%d"),
+        "to": now.strftime("%Y-%m-%d"), "token": api_key,
+    }, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, list):
+        return None
+    items: list[dict] = []
+    for a in data:
+        url, headline = a.get("url", ""), a.get("headline", "")
+        if not url or not headline:
+            continue
+        try:
+            d = datetime.utcfromtimestamp(int(a.get("datetime", 0))).strftime("%Y-%m-%d")
+        except (ValueError, OSError):
+            continue
+        items.append({"date": d, "title": headline, "url": url,
+                      "source": a.get("source", ""), "sentiment": 0.0, "relevance": 0.2})
+        if len(items) >= limit:
+            break
     return items
 
 

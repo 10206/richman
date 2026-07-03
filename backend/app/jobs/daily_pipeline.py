@@ -153,40 +153,56 @@ def collect_news(
                 articles[sector] = items
         return articles, sentiment, geo_boost, meta
 
-    if not settings.alphavantage_api_key:
+    av_key = settings.alphavantage_api_key
+    fh_key = settings.finnhub_api_key
+    if not av_key and not fh_key:
         return articles, sentiment, geo_boost, meta
 
-    # 서버 시계 기준 절대 창(time_from) 대신 "가장 최신 기사 기준 상대 창"을 쓴다.
-    # AV 무료 티어의 최신 기사 날짜가 서버 시계보다 뒤처져 있어도(간극) 견고하게 최신 뉴스를 확보.
+    # 감성 점수(news_score)는 AV(기사별 감성 제공)에서만 산출한다.
+    # 표시용 기사는 Finnhub로 보강(더 풍부·최신) — AV가 없거나 한도로 실패해도 뉴스는 채워진다.
     # AV 무료 티어는 초당 1회 버스트 제한이 있어 섹터 요청 사이에 간격을 둔다 (일당 25회는 6요청이라 여유).
     for i, sector in enumerate(Sector):
-        if i > 0:
-            time.sleep(NEWS_REQUEST_INTERVAL_SEC)
-        try:
-            items = news.fetch_us_news(sector, settings.alphavantage_api_key)
-        except Exception as e:  # noqa: BLE001 — 뉴스는 부가 신호, 실패해도 계속
-            logger.warning("[US] %s 뉴스 수집 실패: %s", sector.value, e)
-            continue
-        if not items:
-            continue
-        items.sort(key=lambda it: it.get("date", ""), reverse=True)
-        newest = datetime.strptime(items[0]["date"], "%Y-%m-%d")
-        cutoff = (newest - timedelta(days=NEWS_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-        items = [it for it in items if it.get("date", "") >= cutoff]
-        articles[sector] = items
-        daily = news.daily_sentiment(items)
-        if len(daily) >= 3:
-            sig = nf.news_signal(daily["sentiment"], daily["article_count"])
-            sentiment[sector] = sig["news_score"]
-            meta["news"][sector.value] = {
-                "news_score": _f(sig["news_score"].iloc[-1]),
-                "news_z": _f(sig["z"].iloc[-1]),
-                "articles_3d": _f(daily["article_count"].tail(3).sum()),
-            }
-        if sector == Sector.GOLD:
-            geo = news.geopolitical_article_count(items)
-            if len(geo):
-                geo_boost = nf.geopolitical_boost(geo)
+        av_items = None
+        if av_key:
+            if i > 0:
+                time.sleep(NEWS_REQUEST_INTERVAL_SEC)
+            try:
+                av_items = news.fetch_us_news(sector, av_key)
+            except Exception as e:  # noqa: BLE001 — 뉴스는 부가 신호, 실패해도 계속
+                logger.warning("[US] %s AV 뉴스 실패: %s", sector.value, e)
+
+        if av_items:
+            # 가장 최신 기사 기준 상대 창 (서버 시계-AV 데이터 간극에 견고)
+            av_items.sort(key=lambda it: it.get("date", ""), reverse=True)
+            newest = datetime.strptime(av_items[0]["date"], "%Y-%m-%d")
+            cutoff = (newest - timedelta(days=NEWS_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+            av_items = [it for it in av_items if it.get("date", "") >= cutoff]
+            articles[sector] = av_items
+            daily = news.daily_sentiment(av_items)
+            if len(daily) >= 3:
+                sig = nf.news_signal(daily["sentiment"], daily["article_count"])
+                sentiment[sector] = sig["news_score"]
+                meta["news"][sector.value] = {
+                    "news_score": _f(sig["news_score"].iloc[-1]),
+                    "news_z": _f(sig["z"].iloc[-1]),
+                    "articles_3d": _f(daily["article_count"].tail(3).sum()),
+                }
+            if sector == Sector.GOLD:
+                geo = news.geopolitical_article_count(av_items)
+                if len(geo):
+                    geo_boost = nf.geopolitical_boost(geo)
+
+        # Finnhub 표시 강화 (감성엔 미반영, AV 결과에 중복 제거 후 추가)
+        if fh_key:
+            try:
+                fh = news.fetch_finnhub_news(sector, fh_key)
+                if fh:
+                    seen = {it["url"] for it in articles.get(sector, [])}
+                    extra = [it for it in fh if it.get("url") not in seen]
+                    articles.setdefault(sector, []).extend(extra)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[US] %s Finnhub 뉴스 실패: %s", sector.value, e)
+
     return articles, sentiment, geo_boost, meta
 
 

@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # 실적 서프라이즈(예상치 상회/부합/하회) — 캘린더용. Financial Modeling Prep 무료 티어.
     fmp_api_key: str | None = None
 
+    # 뉴스 표시 강화 (Finnhub) / 한국 공시 (DART)
+    finnhub_api_key: str | None = None
+    dart_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
