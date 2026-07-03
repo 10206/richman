@@ -213,11 +213,11 @@ _calendar_cache: dict[tuple[int, int, str], list[dict]] = {}
 
 
 @router.get("/calendar")
-def calendar_endpoint(request: Request, month: str | None = Query(None),
-                      diag: int = Query(0)) -> dict:
+def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict:
     """이달의 경제 캘린더 (미국/한국 실적 + 거시 지표 발표).
 
     month: "YYYY-MM" (없으면 서버 기준 현재 월). 실적은 AV 확정일, 거시는 정례 주기 예상.
+    실적 수집이 실패(AV 한도 등)하면 캐시하지 않아 다음 요청에서 자동 재시도된다.
     """
     from app.data import market_calendar as mc
 
@@ -231,39 +231,17 @@ def calendar_endpoint(request: Request, month: str | None = Query(None),
     else:
         year, mon = now.year, now.month
 
-    if diag:
-        settings = request.app.state.settings
-        out: dict = {"av_key_set": bool(settings.alphavantage_api_key),
-                     "fmp_key_set": bool(settings.fmp_api_key)}
-        try:
-            import httpx as _hx
-            r = _hx.get("https://www.alphavantage.co/query",
-                        params={"function": "EARNINGS_CALENDAR", "horizon": "3month",
-                                "apikey": settings.alphavantage_api_key or ""}, timeout=30)
-            txt = r.text
-            out["av_status"] = r.status_code
-            out["av_len"] = len(txt)
-            out["av_head"] = txt[:180]
-            out["av_key_tail"] = (settings.alphavantage_api_key or "")[-4:]
-        except Exception as e:  # noqa: BLE001
-            out["av_error"] = repr(e)
-        try:
-            raw = mc.earnings_events(year, mon, settings.alphavantage_api_key)
-            out["earnings_count"] = len(raw)
-        except Exception as e:  # noqa: BLE001
-            out["earnings_error"] = repr(e)
-        return out
-
     cache_key = (year, mon, now.date().isoformat())
     events = _calendar_cache.get(cache_key)
     if events is None:
         settings = request.app.state.settings
-        events = mc.month_calendar(
+        events, degraded = mc.month_calendar(
             year, mon, settings.alphavantage_api_key,
             fmp_key=settings.fmp_api_key, today_iso=now.date().isoformat(),
         )
-        _calendar_cache.clear()  # 하루 전날 캐시 정리
-        _calendar_cache[cache_key] = events
+        if not degraded:                 # 실적 실패 시엔 캐시하지 않음 (다음 요청/내일 재시도)
+            _calendar_cache.clear()
+            _calendar_cache[cache_key] = events
 
     return {"month": f"{year:04d}-{mon:02d}", "events": events}
 

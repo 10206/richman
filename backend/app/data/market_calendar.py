@@ -133,6 +133,9 @@ def earnings_events(year: int, month: int, api_key: str | None, timeout: float =
     text = resp.text.strip()
     if not text.startswith("symbol"):
         raise RuntimeError(f"Alpha Vantage EARNINGS_CALENDAR 응답 오류: {text[:120]}")
+    # 일일 한도 초과 시 헤더만 담긴 짧은 응답이 옴 (정상 CSV는 수십만 바이트)
+    if len(text) < 500:
+        raise RuntimeError(f"Alpha Vantage EARNINGS_CALENDAR 한도 초과/빈 응답: {text[:120]}")
 
     events: list[dict] = []
     for row in csv.DictReader(io.StringIO(text)):
@@ -204,15 +207,22 @@ def enrich_earnings_results(events: list[dict], fmp_key: str | None, today_iso: 
 
 
 def month_calendar(year: int, month: int, av_key: str | None,
-                   fmp_key: str | None = None, today_iso: str | None = None) -> list[dict]:
-    """거시 + 실적 통합, 날짜·중요도 순 정렬. fmp_key 있으면 발표된 실적에 상회/부합/하회 채움."""
+                   fmp_key: str | None = None,
+                   today_iso: str | None = None) -> tuple[list[dict], bool]:
+    """거시 + 실적 통합, 날짜·중요도 순 정렬. fmp_key 있으면 발표된 실적에 상회/부합/하회 채움.
+
+    반환: (events, degraded). degraded=True면 실적 수집 실패(한도 등) — 호출측은 캐시하지 말 것.
+    """
     events = macro_events(year, month)
-    try:
-        earnings = earnings_events(year, month, av_key)
-        if today_iso:
-            enrich_earnings_results(earnings, fmp_key, today_iso)
-        events += earnings
-    except Exception as e:  # noqa: BLE001 — 실적 실패해도 거시 캘린더는 제공
-        logger.warning("[calendar] 실적 수집 실패 (%s-%02d): %r", year, month, e)
+    degraded = False
+    if av_key:
+        try:
+            earnings = earnings_events(year, month, av_key)
+            if today_iso:
+                enrich_earnings_results(earnings, fmp_key, today_iso)
+            events += earnings
+        except Exception as e:  # noqa: BLE001 — 실적 실패해도 거시 캘린더는 제공
+            logger.warning("[calendar] 실적 수집 실패 (%s-%02d): %r", year, month, e)
+            degraded = True
     events.sort(key=lambda e: (e["date"], -e["importance"]))
-    return events
+    return events, degraded
