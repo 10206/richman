@@ -84,7 +84,7 @@ _BOK_2026 = ["2026-01-15", "2026-02-26", "2026-04-09", "2026-05-28",
 # 미국 거시 지표 → FRED (릴리스ID, 데이터 시리즈, units, 헤드라인 포맷).
 # 확정 발표일(release_id) + 실제 발표값(series/units)을 함께 붙인다.
 _FRED_INDICATOR: dict[str, tuple[int, str, str, "callable"]] = {
-    "고용보고서(비농업 고용)": (50, "PAYEMS", "chg", lambda v: f"비농업 {v/10:+.1f}만명"),
+    "고용보고서(비농업 고용)": (50, "PAYEMS", "chg", lambda v: f"비농업 {v:+.0f}K"),
     "소비자물가(CPI)": (10, "CPIAUCSL", "pc1", lambda v: f"전년비 {v:+.1f}%"),
     "생산자물가(PPI)": (46, "PPIFIS", "pc1", lambda v: f"전년비 {v:+.1f}%"),
     "소매판매": (9, "RSAFS", "pch", lambda v: f"전월비 {v:+.1f}%"),
@@ -93,6 +93,57 @@ _FRED_INDICATOR: dict[str, tuple[int, str, str, "callable"]] = {
 }
 _FRED_DATES_URL = "https://api.stlouisfed.org/fred/release/dates"
 _FRED_OBS_URL = "https://api.stlouisfed.org/fred/series/observations"
+
+# ForexFactory(FairEconomy) 무료 주간 캘린더 — 컨센서스(forecast) 제공. 비공식·이번 주만.
+_FF_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+_FF_TITLE_MAP = {
+    "Non-Farm Employment Change": "고용보고서(비농업 고용)",
+    "ISM Manufacturing PMI": "ISM 제조업 PMI",
+    "CPI m/m": "소비자물가(CPI)",
+    "PPI m/m": "생산자물가(PPI)",
+    "Retail Sales m/m": "소매판매",
+    "Core PCE Price Index m/m": "개인소비지출(PCE) 물가",
+    "Advance GDP q/q": "GDP(속보치)",
+    "Federal Funds Rate": "FOMC 정책금리 결정",
+}
+
+
+def _ff_num(s: str | None) -> float | None:
+    """'114K','7.28M','-0.1%','4.3%' → 앞쪽 숫자(부호 포함). 접미사/부호 처리."""
+    if not s:
+        return None
+    import re
+    m = re.match(r"^\s*(-?\d+(?:\.\d+)?)", s.replace(",", ""))
+    return float(m.group(1)) if m else None
+
+
+def _macro_result(actual: str, forecast: str) -> str | None:
+    """실제 vs 컨센서스 → 상회/부합/하회 (같은 소스·같은 단위 전제)."""
+    a, f = _ff_num(actual), _ff_num(forecast)
+    if a is None or f is None:
+        return None
+    if abs(a - f) < 1e-9:
+        return "meet"
+    return "beat" if a > f else "miss"
+
+
+def forexfactory_consensus(timeout: float = 20.0) -> dict[str, dict]:
+    """이번 주 미국 지표의 {지표명: {forecast, actual, date}} (컨센서스)."""
+    resp = httpx.get(_FF_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
+    resp.raise_for_status()
+    out: dict[str, dict] = {}
+    for e in resp.json():
+        if e.get("country") != "USD":
+            continue
+        ind = _FF_TITLE_MAP.get((e.get("title") or "").strip())
+        if not ind:
+            continue
+        out[ind] = {
+            "forecast": (e.get("forecast") or "").strip(),
+            "actual": (e.get("actual") or "").strip(),
+            "date": (e.get("date") or "")[:10],
+        }
+    return out
 
 
 def _fred_release_dates(release_id: int, api_key: str, released_only: bool = False,
@@ -137,7 +188,8 @@ def macro_events(year: int, month: int, fred_key: str | None = None,
             events.append({
                 "date": d.isoformat(), "market": market, "category": "macro",
                 "title": title, "importance": importance, "confirmed": False,
-                "release_time": release_time, "result": None, "actual": None,
+                "release_time": release_time, "result": None,
+                "actual": None, "estimate": None,
             })
 
     for market, title, imp, rtime, rule in _MACRO_RULES:
@@ -176,6 +228,26 @@ def macro_events(year: int, month: int, fred_key: str | None = None,
                             e["actual"] = fmt(v)
             except Exception:  # noqa: BLE001 — 실패 시 예상일/값없음 유지
                 continue
+
+    # ForexFactory 컨센서스(이번 주 미국 지표) → estimate + 상회/부합/하회
+    ym = f"{year:04d}-{month:02d}"
+    try:
+        cons = forexfactory_consensus()
+        for e in events:
+            if e["market"] != "US" or e["category"] != "macro":
+                continue
+            c = cons.get(e["title"])
+            if not c or c.get("date", "")[:7] != ym:
+                continue
+            if c.get("forecast"):
+                e["estimate"] = c["forecast"]
+            if c.get("actual"):
+                e["actual"] = c["actual"]                       # FF 실제(컨센서스와 동일 단위)
+                r = _macro_result(c["actual"], c["forecast"])
+                if r:
+                    e["result"] = r
+    except Exception:  # noqa: BLE001 — 컨센서스 실패해도 캘린더는 정상
+        pass
 
     return events
 
@@ -226,7 +298,7 @@ def earnings_events(year: int, month: int, api_key: str | None, timeout: float =
             "date": d.isoformat(), "market": "US", "category": "earnings",
             "title": f"{name} ({sym}) 실적", "sector": sector.value, "ticker": sym,
             "importance": 2, "confirmed": True,
-            "release_time": release_time, "result": None,
+            "release_time": release_time, "result": None, "estimate": None,
         })
     return events
 
