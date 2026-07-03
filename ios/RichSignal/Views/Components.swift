@@ -293,25 +293,29 @@ enum CalendarFormat {
     }
 }
 
-/// 캘린더 이벤트 한 줄: [일자] [시장칩] [카테고리아이콘] 제목 [예상]
+/// 캘린더 이벤트 한 줄. 오늘 일정은 강조 + 발표시간·결과(상회/부합/하회) 표시.
 struct CalendarEventRow: View {
     let event: CalendarEvent
 
     private var marketColor: Color { event.market == .US ? .blue : .indigo }
+    private var isToday: Bool { event.isToday }
+    private var isPast: Bool { CalendarFormat.isPast(event.date) }
 
     var body: some View {
         HStack(spacing: 10) {
-            // 일자
+            // 일자 (오늘은 연두 강조 원형)
             let dw = CalendarFormat.dayAndWeekday(event.date)
             VStack(spacing: 0) {
                 Text(dw.day)
                     .font(.headline.monospacedDigit())
-                Text(dw.weekday)
-                    .font(.caption2)
-                    .foregroundStyle(dw.weekday == "일" ? .red : (dw.weekday == "토" ? .blue : .secondary))
+                    .foregroundStyle(isToday ? Color("AccentColor") : .primary)
+                Text(isToday ? "오늘" : dw.weekday)
+                    .font(.caption2.weight(isToday ? .bold : .regular))
+                    .foregroundStyle(isToday ? Color("AccentColor")
+                                     : (dw.weekday == "일" ? .red : (dw.weekday == "토" ? .blue : .secondary)))
             }
-            .frame(width: 34)
-            .opacity(CalendarFormat.isPast(event.date) ? 0.45 : 1)
+            .frame(width: 36)
+            .opacity(isPast ? 0.45 : 1)
 
             // 시장 칩
             Text(event.market.label)
@@ -321,19 +325,31 @@ struct CalendarEventRow: View {
                 .padding(.vertical, 2)
                 .background(marketColor.opacity(0.15), in: Capsule())
 
-            // 카테고리 아이콘 + 제목
+            // 카테고리 아이콘 + 제목 (+ 오늘이면 발표시간 둘째 줄)
             Image(systemName: event.category.iconName)
                 .font(.caption)
                 .foregroundStyle(event.category == .earnings ? Color("AccentColor") : .secondary)
-            Text(event.title)
-                .font(.subheadline)
-                .foregroundStyle(CalendarFormat.isPast(event.date) ? .secondary : .primary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(event.title)
+                    .font(.subheadline)
+                    .foregroundStyle(isPast ? .secondary : .primary)
+                    .lineLimit(1)
+                if isToday, let rt = event.releaseTime {
+                    Label(rt, systemImage: "clock")
+                        .font(.caption2)
+                        .foregroundStyle(Color("AccentColor"))
+                }
+            }
 
             Spacer(minLength: 4)
 
-            // 중요도(높음) 또는 예상 표시
-            if !event.confirmed {
+            // 결과(상회/부합/하회) 우선, 없으면 예상/중요도 표시
+            if let result = event.result {
+                Label(result.label, systemImage: result.iconName)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(result.color)
+                    .labelStyle(.titleAndIcon)
+            } else if !event.confirmed {
                 Text("예상")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -343,12 +359,20 @@ struct CalendarEventRow: View {
                     .foregroundStyle(.orange)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, isToday ? 4 : 2)
+        .listRowBackground(isToday ? Color("AccentColor").opacity(0.10) : nil)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(event.market.label) \(CalendarFormat.dayAndWeekday(event.date).day)일, "
-            + "\(event.category.label), \(event.title)\(event.confirmed ? "" : ", 예상")"
-        )
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        var parts = ["\(event.market.label) \(CalendarFormat.dayAndWeekday(event.date).day)일"]
+        if isToday { parts.append("오늘") }
+        parts.append(event.category.label)
+        parts.append(event.title)
+        if isToday, let rt = event.releaseTime { parts.append("발표 \(rt)") }
+        if let r = event.result { parts.append(r.label) } else if !event.confirmed { parts.append("예상") }
+        return parts.joined(separator: ", ")
     }
 }
 

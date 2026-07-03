@@ -389,25 +389,30 @@ final class MockDataService: SignalDataProviding {
 
     func calendar(month: String?) async throws -> CalendarResponse {
         let cal = Calendar(identifier: .gregorian)
-        let today = Date()
-        let comps = cal.dateComponents([.year, .month], from: today)
-        let y = comps.year ?? 2026
-        let m = comps.month ?? 7
+        let comps = cal.dateComponents([.year, .month, .day], from: Date())
+        let y = comps.year ?? 2026, m = comps.month ?? 7, todayDay = comps.day ?? 15
         let mm = String(format: "%04d-%02d", y, m)
         func d(_ day: Int) -> String { String(format: "%@-%02d", mm, day) }
-        let events = [
-            CalendarEvent(date: d(1), market: .KR, category: .macro, title: "수출입동향(관세청)", importance: 2, confirmed: false),
-            CalendarEvent(date: d(3), market: .US, category: .macro, title: "고용보고서(비농업 고용)", importance: 3, confirmed: false),
-            CalendarEvent(date: d(7), market: .KR, category: .macro, title: "소비자물가동향(통계청)", importance: 3, confirmed: false),
-            CalendarEvent(date: d(8), market: .US, category: .macro, title: "소비자물가(CPI)", importance: 3, confirmed: false),
-            CalendarEvent(date: d(9), market: .KR, category: .macro, title: "한국은행 금통위 정책금리 결정", importance: 3, confirmed: false),
-            CalendarEvent(date: d(15), market: .US, category: .earnings, title: "Johnson & Johnson (JNJ) 실적", importance: 2, confirmed: true),
-            CalendarEvent(date: d(16), market: .US, category: .earnings, title: "TSMC (TSM) 실적", importance: 2, confirmed: true),
-            CalendarEvent(date: d(21), market: .US, category: .macro, title: "소매판매", importance: 2, confirmed: false),
-            CalendarEvent(date: d(23), market: .US, category: .earnings, title: "Intel (INTC) 실적", importance: 2, confirmed: true),
-            CalendarEvent(date: d(28), market: .US, category: .earnings, title: "Texas Instruments (TXN) 실적", importance: 2, confirmed: true),
-            CalendarEvent(date: d(29), market: .US, category: .macro, title: "FOMC 정책금리 결정", importance: 3, confirmed: false),
+        func ev(_ day: Int, _ mk: MarketCode, _ c: CalendarCategory, _ t: String, _ imp: Int,
+                _ conf: Bool, _ rt: String? = nil, _ res: CalendarResult? = nil) -> CalendarEvent {
+            CalendarEvent(date: d(day), market: mk, category: c, title: t,
+                          importance: imp, confirmed: conf, releaseTime: rt, result: res)
+        }
+        var events = [
+            ev(1, .KR, .macro, "수출입동향(관세청)", 2, false, "09:00 KST", .beat),
+            ev(3, .US, .macro, "고용보고서(비농업 고용)", 3, false, "08:30 ET", .miss),
+            ev(7, .KR, .macro, "소비자물가동향(통계청)", 3, false, "08:00 KST", .meet),
+            ev(8, .US, .macro, "소비자물가(CPI)", 3, false, "08:30 ET"),
+            ev(9, .KR, .macro, "한국은행 금통위 정책금리 결정", 3, false, "09:00 KST"),
+            ev(15, .US, .earnings, "Johnson & Johnson (JNJ) 실적", 2, true, "장 시작 전"),
+            ev(16, .US, .earnings, "TSMC (TSM) 실적", 2, true, "장 시작 전"),
+            ev(21, .US, .macro, "소매판매", 2, false, "08:30 ET"),
+            ev(23, .US, .earnings, "Intel (INTC) 실적", 2, true, "장 마감 후"),
+            ev(28, .US, .earnings, "Texas Instruments (TXN) 실적", 2, true, "장 마감 후"),
+            ev(29, .US, .macro, "FOMC 정책금리 결정", 3, false, "14:00 ET"),
         ]
+        // 오늘 일정 하나 보장 (강조·발표시간 데모)
+        events.append(ev(todayDay, .US, .macro, "개인소비지출(PCE) 물가", 2, false, "08:30 ET"))
         return CalendarResponse(month: mm, events: events)
     }
 

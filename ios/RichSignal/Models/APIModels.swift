@@ -307,9 +307,40 @@ struct CalendarEvent: Codable, Identifiable {
     let title: String
     let importance: Int          // 1~3 (3=최상)
     let confirmed: Bool          // true=확정(실적), false=예상(거시 정례주기)
+    let releaseTime: String?     // 관례 발표시각 (거시) / 장전·장후 (실적)
+    let result: CalendarResult?  // 예상치 대비 상회/부합/하회 (소스 연결 전엔 null)
 
     var id: String { "\(date)-\(market.rawValue)-\(title)" }
     var dateValue: Date { APIDate.parse(date) }
+    var isToday: Bool { CalendarFormat.isToday(date) }
+}
+
+enum CalendarResult: String, Codable {
+    case beat    // 예상치 상회
+    case meet    // 예상치 부합
+    case miss    // 예상치 하회
+
+    var label: String {
+        switch self {
+        case .beat: "예상치 상회"
+        case .meet: "예상치 부합"
+        case .miss: "예상치 하회"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .beat: .green
+        case .meet: .secondary
+        case .miss: .red
+        }
+    }
+    var iconName: String {
+        switch self {
+        case .beat: "arrow.up.right"
+        case .meet: "equal"
+        case .miss: "arrow.down.right"
+        }
+    }
 }
 
 enum CalendarCategory: String, Codable {
