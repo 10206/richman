@@ -213,7 +213,8 @@ _calendar_cache: dict[tuple[int, int, str], list[dict]] = {}
 
 
 @router.get("/calendar")
-def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict:
+def calendar_endpoint(request: Request, month: str | None = Query(None),
+                      diag: int = Query(0)) -> dict:
     """이달의 경제 캘린더 (미국/한국 실적 + 거시 지표 발표).
 
     month: "YYYY-MM" (없으면 서버 기준 현재 월). 실적은 AV 확정일, 거시는 정례 주기 예상.
@@ -229,6 +230,18 @@ def calendar_endpoint(request: Request, month: str | None = Query(None)) -> dict
             raise HTTPException(status_code=422, detail="month은 'YYYY-MM' 형식이어야 함")
     else:
         year, mon = now.year, now.month
+
+    if diag:
+        settings = request.app.state.settings
+        out: dict = {"av_key_set": bool(settings.alphavantage_api_key),
+                     "fmp_key_set": bool(settings.fmp_api_key)}
+        try:
+            raw = mc.earnings_events(year, mon, settings.alphavantage_api_key)
+            out["earnings_count"] = len(raw)
+            out["sample"] = [e.get("title") for e in raw[:3]]
+        except Exception as e:  # noqa: BLE001
+            out["earnings_error"] = repr(e)
+        return out
 
     cache_key = (year, mon, now.date().isoformat())
     events = _calendar_cache.get(cache_key)
