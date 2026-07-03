@@ -308,8 +308,9 @@ struct CalendarEvent: Codable, Identifiable {
     let importance: Int          // 1~3 (3=최상)
     let confirmed: Bool          // true=확정(실적), false=예상(거시 정례주기)
     let releaseTime: String?     // 관례 발표시각 (거시) / 장전·장후 (실적)
-    let result: CalendarResult?  // 예상치 대비 상회/부합/하회 (실적, 컨센서스 연결 시)
-    let actual: String?          // 거시 지표 실제 발표값 (예: "비농업 +5.7만명", 발표 후)
+    let result: CalendarResult?  // 예상치 대비 상회/부합/하회
+    let actual: String?          // 실제 발표값 (예: "비농업 +57K", 발표 후)
+    let estimate: String?        // 컨센서스(예상치) — 거시: ForexFactory forecast
 
     var id: String { "\(date)-\(market.rawValue)-\(title)" }
     var dateValue: Date { APIDate.parse(date) }
@@ -328,18 +329,27 @@ enum CalendarResult: String, Codable {
         case .miss: "예상치 하회"
         }
     }
-    var color: Color {
-        switch self {
-        case .beat: .green
-        case .meet: .secondary
-        case .miss: .red
-        }
-    }
     var iconName: String {
         switch self {
         case .beat: "arrow.up.right"
         case .meet: "equal"
         case .miss: "arrow.down.right"
+        }
+    }
+
+    /// 실적은 상회=호재(초록)/하회=악재(빨강). 거시는 상회가 호재라 단정 못 하므로 중립(파랑/회색).
+    func color(macro: Bool) -> Color {
+        if macro {
+            switch self {
+            case .beat: return .blue
+            case .meet: return .secondary
+            case .miss: return .indigo
+            }
+        }
+        switch self {
+        case .beat: return .green
+        case .meet: return .secondary
+        case .miss: return .red
         }
     }
 }

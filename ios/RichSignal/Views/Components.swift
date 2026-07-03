@@ -344,6 +344,13 @@ struct CalendarEventRow: View {
                             .background(.orange.opacity(0.15), in: Capsule())
                     }
                 }
+                // 실제/예상(컨센서스) 값 — 있으면 둘째 줄에
+                if event.actual != nil || event.estimate != nil {
+                    Text(valueLine)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if isToday, let rt = event.releaseTime {
                     Label(rt, systemImage: "clock")
                         .font(.caption2)
@@ -353,18 +360,13 @@ struct CalendarEventRow: View {
 
             Spacer(minLength: 4)
 
-            // 실적: 상회/부합/하회 칩 / 거시: 실제 발표값 / 미발표 거시: 예상
+            // 상회/부합/하회 칩 (실적=호재/악재 색, 거시=중립 색) / 미발표는 예상 태그
             if let result = event.result {
                 Label(result.label, systemImage: result.iconName)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(result.color)
+                    .foregroundStyle(result.color(macro: event.category == .macro))
                     .labelStyle(.titleAndIcon)
-            } else if let actual = event.actual {
-                Text(actual)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-            } else if !event.confirmed {
+            } else if event.actual == nil && event.estimate == nil && !event.confirmed {
                 Text("예상")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -376,6 +378,14 @@ struct CalendarEventRow: View {
         .accessibilityLabel(accessibilityText)
     }
 
+    /// "실제 +57K · 예상 114K" 형태 (있는 것만)
+    private var valueLine: String {
+        var segs: [String] = []
+        if let a = event.actual { segs.append("실제 \(a)") }
+        if let e = event.estimate { segs.append("예상 \(e)") }
+        return segs.joined(separator: " · ")
+    }
+
     private var accessibilityText: String {
         var parts = ["\(event.market.label) \(CalendarFormat.dayAndWeekday(event.date).day)일"]
         if isToday { parts.append("오늘") }
@@ -383,9 +393,9 @@ struct CalendarEventRow: View {
         parts.append(event.title)
         if event.importance >= 3 { parts.append("중요") }
         if isToday, let rt = event.releaseTime { parts.append("발표 \(rt)") }
+        if !valueLine.isEmpty { parts.append(valueLine) }
         if let r = event.result { parts.append(r.label) }
-        else if let a = event.actual { parts.append("결과 \(a)") }
-        else if !event.confirmed { parts.append("예상") }
+        else if event.actual == nil && event.estimate == nil && !event.confirmed { parts.append("예상") }
         return parts.joined(separator: ", ")
     }
 }
