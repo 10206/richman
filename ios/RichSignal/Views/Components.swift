@@ -212,6 +212,58 @@ struct SentimentIcon: View {
     }
 }
 
+// MARK: - 칩 흐름 배치 (여러 줄 자동 줄바꿈)
+
+/// 문자열 목록을 칩으로 렌더링하고 폭을 넘으면 다음 줄로 넘김 (iOS 16+ Layout).
+struct FlowChips: View {
+    let items: [String]
+
+    var body: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(items, id: \.self) { text in
+                Text(text)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.secondarySystemFill), in: Capsule())
+                    .foregroundStyle(.primary)
+            }
+        }
+    }
+}
+
+/// 가로로 채우다 폭 초과 시 줄바꿈하는 단순 Layout.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
+        for sub in subviews {
+            let sz = sub.sizeThatFits(.unspecified)
+            if x + sz.width > maxWidth, x > 0 {
+                x = 0; y += rowHeight + spacing; rowHeight = 0
+            }
+            x += sz.width + spacing
+            rowHeight = max(rowHeight, sz.height)
+        }
+        return CGSize(width: maxWidth == .infinity ? x : maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for sub in subviews {
+            let sz = sub.sizeThatFits(.unspecified)
+            if x + sz.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX; y += rowHeight + spacing; rowHeight = 0
+            }
+            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(sz))
+            x += sz.width + spacing
+            rowHeight = max(rowHeight, sz.height)
+        }
+    }
+}
+
 // MARK: - 경제 캘린더
 
 enum CalendarFormat {

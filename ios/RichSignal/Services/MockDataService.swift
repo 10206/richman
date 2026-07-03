@@ -329,8 +329,46 @@ final class MockDataService: SignalDataProviding {
             sector: snap,
             regimeBias: bias(sector: sector, regime: regimeNow),
             macroRaw: macroRaw,
+            basket: mockBasket(market: market, sector: sector),
             newsSummary: mockNewsSummary(market: market, sector: sector),
             newsItems: mockNewsItems(market: market, sector: sector)
+        )
+    }
+
+    private func mockBasket(market: MarketCode, sector: SectorCode) -> SectorBasket {
+        let krProxy: [SectorCode: (String, String)] = [
+            .semiconductor: ("091160", "KODEX 반도체"), .robotics: ("445290", "KODEX K-로봇액티브"),
+            .power: ("487240", "KODEX AI전력핵심설비"), .healthcare: ("143860", "TIGER 헬스케어"),
+            .gold: ("411060", "ACE KRX금현물"), .bonds: ("148070", "KOSEF 국고채10년"),
+        ]
+        let usProxy: [SectorCode: (String, String)] = [
+            .semiconductor: ("SMH", "VanEck 반도체 (SMH)"), .robotics: ("BOTZ", "Global X 로봇·AI (BOTZ)"),
+            .power: ("GRID", "First Trust 스마트그리드 (GRID)"), .healthcare: ("XLV", "Health Care Select (XLV)"),
+            .gold: ("GLD", "SPDR 골드 (GLD)"), .bonds: ("TLT", "iShares 미국 20년+ 국채 (TLT)"),
+        ]
+        let krCons: [SectorCode: [(String, String)]] = [
+            .semiconductor: [("005930", "삼성전자"), ("000660", "SK하이닉스"), ("042700", "한미반도체")],
+            .robotics: [("454910", "두산로보틱스"), ("277810", "레인보우로보틱스"), ("005930", "삼성전자")],
+            .power: [("298040", "효성중공업"), ("267260", "HD현대일렉트릭"), ("010120", "LS ELECTRIC")],
+            .healthcare: [("207940", "삼성바이오로직스"), ("068270", "셀트리온"), ("000100", "유한양행")],
+        ]
+        let usCons: [SectorCode: [(String, String)]] = [
+            .semiconductor: [("NVDA", "엔비디아"), ("TSM", "TSMC"), ("AVGO", "브로드컴")],
+            .robotics: [("NVDA", "엔비디아"), ("ISRG", "인튜이티브서지컬"), ("ABB", "ABB")],
+            .power: [("ETN", "이튼"), ("GEV", "GE버노바"), ("PWR", "콴타서비스")],
+            .healthcare: [("LLY", "일라이릴리"), ("UNH", "유나이티드헬스"), ("JNJ", "존슨앤드존슨")],
+        ]
+        let (pt, pn) = (market == .KR ? krProxy : usProxy)[sector] ?? ("", "")
+        let assetType = sector == .gold ? "commodity" : (sector == .bonds ? "bond" : "equity_etf")
+        let note: String? = sector == .gold ? "실물 자산(금)을 추종하는 ETF로, 개별 구성종목이 없습니다."
+            : (sector == .bonds ? "국채(채권)를 추종하는 ETF로, 개별 구성종목이 없습니다." : nil)
+        let cons = (market == .KR ? krCons : usCons)[sector] ?? []
+        return SectorBasket(
+            market: market,
+            proxy: BasketProxy(ticker: pt, name: pn),
+            assetType: assetType,
+            constituents: cons.map { BasketConstituent(ticker: $0.0, name: $0.1) },
+            note: note
         )
     }
 

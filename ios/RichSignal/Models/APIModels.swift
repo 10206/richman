@@ -236,8 +236,30 @@ struct SectorDetailResponse: Codable {
     let sector: SectorSnapshot
     let regimeBias: Int          // -2 ~ +2
     let macroRaw: MacroRaw
+    let basket: SectorBasket?    // 섹터 구성 (프록시 ETF + 대표 구성종목)
     let newsSummary: String?
     let newsItems: [NewsItem]
+}
+
+struct SectorBasket: Codable {
+    let market: MarketCode
+    let proxy: BasketProxy
+    let assetType: String        // equity_etf | commodity | bond
+    let constituents: [BasketConstituent]
+    let note: String?
+}
+
+struct BasketProxy: Codable {
+    let ticker: String
+    let name: String
+}
+
+struct BasketConstituent: Codable, Identifiable {
+    let ticker: String
+    let name: String
+    var id: String { ticker.isEmpty ? name : ticker }
+    /// "삼성전자 (005930)" — ticker 없으면 이름만
+    var display: String { ticker.isEmpty ? name : "\(name) (\(ticker))" }
 }
 
 struct MacroRaw: Codable {

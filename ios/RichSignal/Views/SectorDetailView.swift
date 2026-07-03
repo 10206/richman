@@ -21,6 +21,7 @@ struct SectorDetailView: View {
 
             if let detail {
                 summarySection(detail)
+                if let basket = detail.basket { basketSection(basket) }
                 componentSection(detail)
                 chartSection
                 newsSection(detail)
@@ -78,6 +79,48 @@ struct SectorDetailView: View {
                 RationaleNote(text: ScoreExplainer.overall(detail, history: history))
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: 섹터 구성 (프록시 ETF + 대표 구성종목)
+
+    @ViewBuilder
+    private func basketSection(_ basket: SectorBasket) -> some View {
+        Section {
+            // 측정 기준 ETF
+            HStack(spacing: 10) {
+                Image(systemName: "chart.pie.fill")
+                    .foregroundStyle(Color("AccentColor"))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(basket.proxy.name)
+                        .font(.subheadline.weight(.semibold))
+                    Text("종목코드 \(basket.proxy.ticker) · 이 ETF의 가격·거래량으로 측정")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // 대표 구성종목 또는 실물/채권 안내
+            if let note = basket.note {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !basket.constituents.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("대표 구성종목")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    FlowChips(items: basket.constituents.map(\.display))
+                }
+                .padding(.vertical, 2)
+            }
+        } header: {
+            Text("섹터 구성")
+        } footer: {
+            if basket.note == nil {
+                Text("대표 예시이며 실제 편입비중과 다를 수 있습니다.")
+            }
         }
     }
 
