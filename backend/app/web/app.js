@@ -490,7 +490,7 @@ async function viewSettings() {
     <div class="card">
       <div class="toggle-row">
         <div class="col"><span>푸시 알림 받기</span><span class="muted tiny">신호 변경 시 잠금화면 알림</span></div>
-        <label class="switch"><input type="checkbox" id="tg-push" ${pushState.subscribed ? 'checked' : ''}><span class="slider"></span></label>
+        <label class="switch"><input type="checkbox" id="tg-push" ${pushState.subscribed ? 'checked' : ''} ${pushState.needsKey || !pushState.enabled ? 'disabled' : ''}><span class="slider"></span></label>
       </div>
       <button class="btn secondary" id="btn-testpush" style="margin-top:4px" ${pushState.subscribed ? '' : 'disabled'}>테스트 푸시 보내기</button>
       <p class="footnote" id="push-hint" style="margin-top:10px">${pushHint(pushState, standalone)}</p>
@@ -500,7 +500,7 @@ async function viewSettings() {
     <div class="card">
       ${kv('마지막 동기화', esc(lastSync))}
       ${kv('홈 화면 앱', standalone ? '설치됨 ✓' : '미설치 (Safari)')}
-      ${kv('푸시 상태', pushState.enabled ? (pushState.subscribed ? '구독 중 ✓' : '꺼짐') : '서버 미설정')}
+      ${kv('푸시 상태', pushState.needsKey ? '키 입력 필요' : pushState.enabled ? (pushState.subscribed ? '구독 중 ✓' : '꺼짐') : '서버 미설정')}
     </div>
     <div class="footnote">현금보유 전환은 즉시, 그 외(보유 전환·국면 변경)는 배치 실행 시 묶어서 알립니다.</div>
   `);
@@ -509,6 +509,7 @@ async function viewSettings() {
     Settings.baseURL = document.getElementById('in-base').value.trim();
     Settings.apiKey = document.getElementById('in-key').value.trim();
     dashCache = null; setBadge('저장됨', 'ok'); setTimeout(() => setBadge(null), 1500);
+    viewSettings();  // 키 저장 후 푸시 상태 재확인
   });
   document.getElementById('btn-test').addEventListener('click', async () => {
     const el = document.getElementById('test-res'); el.textContent = '…';
@@ -534,6 +535,7 @@ async function viewSettings() {
   });
 }
 function pushHint(st, standalone) {
+  if (st.needsKey) return 'API 키를 먼저 입력·저장하면 푸시 사용 여부를 확인할 수 있습니다.';
   if (!st.enabled) return '서버에 VAPID 키가 설정되지 않아 푸시를 사용할 수 없습니다.';
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return '이 브라우저는 웹 푸시를 지원하지 않습니다.';
   if (!standalone && isIOS()) return '⚠️ iOS에서는 먼저 공유 → "홈 화면에 추가"로 설치한 뒤, 홈 화면 아이콘으로 열어야 푸시를 켤 수 있습니다.';
@@ -552,9 +554,10 @@ function urlBase64ToUint8Array(base64) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 async function getPushState() {
-  const state = { enabled: false, subscribed: false };
+  const state = { enabled: false, subscribed: false, needsKey: false };
+  if (!Settings.apiKey) { state.needsKey = true; return state; }
   try { const k = await API.vapidKey(); state.enabled = !!k.enabled; state.publicKey = k.public_key; }
-  catch (e) { return state; }
+  catch (e) { if (e.status === 401) state.needsKey = true; return state; }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return state;
   try {
     const reg = await navigator.serviceWorker.ready;
