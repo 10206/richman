@@ -9,7 +9,7 @@ Railway 프로젝트 하나에 서비스 3개:
 
 | 서비스 | 역할 | 볼륨 |
 |---|---|---|
-| **richman-api** | FastAPI 상시 실행. iOS 앱이 여기 접속. `/api/v1/jobs/run` 호출 시 배치 실행 | O (`/data`) |
+| **richman-api** | FastAPI 상시 실행. PWA 웹 앱을 정적 서빙 + 여기 접속. `/api/v1/jobs/run` 호출 시 배치 실행 | O (`/data`) |
 | **richman-cron-kr** | 매일 15:50 KST에 API를 호출만 함 (자체 로직/DB 없음) | X |
 | **richman-cron-us** | 매일 06:10 KST에 API를 호출만 함 | X |
 
@@ -48,7 +48,8 @@ Railway 프로젝트 하나에 서비스 3개:
    - (선택) `FRED_API_KEY`, `ECOS_API_KEY`, `ALPHAVANTAGE_API_KEY`, `KIS_APP_KEY`, `KIS_APP_SECRET`, `ANTHROPIC_API_KEY`
    - `PORT`은 Railway가 자동 주입하므로 직접 설정 안 해도 됨
 5. **Settings → Networking → Generate Domain** → 예: `richman-api.up.railway.app`
-   — 이 URL이 iOS 앱 설정 화면의 "서버 URL" + 아래 크론 서비스들이 호출할 대상
+   — 이 URL이 PWA 접속 주소(브라우저) + 아래 크론 서비스들이 호출할 대상
+     (PWA 설정에서 "서버 URL"은 비워두면 동일 출처라 자동으로 이 주소를 씀)
 
 ## 3. 크론 서비스 2개 생성 (curl만 실행하는 경량 서비스)
 
@@ -107,7 +108,7 @@ cd backend
 .venv/bin/python -m app.jobs.daily_pipeline --market US --backfill   # SQLite(richman.db)에 저장
 .venv/bin/uvicorn app.main:app --reload                              # http://localhost:8000
 ```
-iOS 앱 설정에서 서버 URL을 `http://<맥의 로컬 IP>:8000` 으로 지정하면 실기기에서도 접속 가능.
+브라우저에서 `http://<맥의 로컬 IP>:8000` 으로 접속하면 실기기(같은 Wi-Fi)에서도 PWA 확인 가능.
 
 ## 참고: Supabase로 되돌리고 싶다면
 

@@ -97,3 +97,20 @@ Supabase 무료 티어 프로젝트 개수 한도에 걸림 → 사용자가 SQL
 ## 현재 작업
 
 P1 설계 문서 작성 중.
+
+## 2026-07-30 PWA 전환 + 네이티브 앱 제거
+
+무료 개발자 서명 7일 만료(주기적 재설치) 문제를 없애기 위해 클라이언트를 SwiftUI 네이티브
+앱에서 **PWA(웹 앱)** 로 전환. 서버 웹 푸시까지 포함.
+
+- 프론트: `backend/app/web/`(index.html/app.js/styles.css/sw.js/manifest + 아이콘) — 같은
+  FastAPI에서 StaticFiles로 동일 출처 서빙. 대시보드/섹터상세/캘린더/설정 4화면 네이티브 패리티.
+- 백엔드 웹 푸시(VAPID): `app/push.py`(pywebpush), `push_subscriptions` 테이블 +
+  `notification_events.pushed` 컬럼(기존 SQLite 자동 마이그레이션), `/api/v1/push/*` 엔드포인트,
+  `run_pipeline` 말미 `dispatch_new_notifications` 훅. config에 VAPID_* 추가(미설정 시 푸시만 비활성).
+- 서비스워커는 네트워크 우선(재배포 즉시 반영). VERSION v2.
+- 프로덕션 배포 완료 — https://richman-production.up.railway.app. Railway `richman`에 VAPID 키 설정.
+  아이폰에서 홈 화면 추가 → 정상 동작 확인.
+- **네이티브 앱 `ios/` 폴더 제거**(git 이력에 남음). 구 설치 문서 `docs/06-IOS-INSTALL.md` →
+  `docs/06-PWA-INSTALL.md`로 교체. README/CLAUDE.md/docs/05 PWA 기준으로 갱신.
+  docs/00은 개발 당시 가정의 역사적 기록이라 원문 유지.
