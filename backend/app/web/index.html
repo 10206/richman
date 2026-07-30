@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0e0f10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="리치시그널" />
+  <title>리치시그널</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="topbar-inner">
+        <span id="title">리치시그널</span>
+        <span id="badge" class="badge hidden"></span>
+      </div>
+    </header>
+
+    <main id="view"></main>
+
+    <nav id="tabbar">
+      <a href="#/" class="tab" data-tab="dashboard">
+        <span class="tab-ico">📊</span><span class="tab-label">대시보드</span>
+      </a>
+      <a href="#/calendar" class="tab" data-tab="calendar">
+        <span class="tab-ico">🗓️</span><span class="tab-label">캘린더</span>
+      </a>
+      <a href="#/settings" class="tab" data-tab="settings">
+        <span class="tab-ico">⚙️</span><span class="tab-label">설정</span>
+      </a>
+    </nav>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

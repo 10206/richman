@@ -118,6 +118,59 @@ class TestNotifications:
         assert store.ack_notifications([]) == 0
 
 
+class TestPush:
+    def test_unpushed_and_mark(self, store):
+        a = store.insert_notification("US", "gold", "signal_change", "제목A", "본문", immediate=True)
+        b = store.insert_notification("KR", None, "regime_change", "제목B", "본문", immediate=False)
+        unp = store.unpushed_notifications()
+        assert {r["id"] for r in unp} == {a, b}
+        assert unp[0]["immediate"] is True
+        assert store.mark_pushed([a]) == 1
+        assert {r["id"] for r in store.unpushed_notifications()} == {b}
+        assert store.mark_pushed([a]) == 0  # 이미 pushed
+        # pushed는 delivered(pull ack)와 독립
+        assert len(store.pending_notifications()) == 2
+
+    def test_subscription_lifecycle(self, store):
+        store.add_push_subscription("https://ep/1", "p1", "a1")
+        store.add_push_subscription("https://ep/2", "p2", "a2")
+        subs = store.list_push_subscriptions()
+        assert {s["endpoint"] for s in subs} == {"https://ep/1", "https://ep/2"}
+        # 같은 endpoint 재등록 → 키 갱신, 중복 없음
+        store.add_push_subscription("https://ep/1", "p1new", "a1new")
+        subs = store.list_push_subscriptions()
+        assert len(subs) == 2
+        assert next(s for s in subs if s["endpoint"] == "https://ep/1")["p256dh"] == "p1new"
+        assert store.remove_push_subscription("https://ep/1") == 1
+        assert store.remove_push_subscription("https://ep/1") == 0
+        assert len(store.list_push_subscriptions()) == 1
+
+
+class TestPushMessages:
+    def test_immediate_individual_digest_grouped(self):
+        from app.push import _messages_from_events
+
+        events = [
+            {"id": 1, "title": "즉시A", "body": "b", "immediate": True, "market": "US", "sector": "gold"},
+            {"id": 2, "title": "다이제스트B", "body": "b", "immediate": False, "market": "KR", "sector": "bonds"},
+            {"id": 3, "title": "다이제스트C", "body": "b", "immediate": False, "market": "US", "sector": None},
+        ]
+        msgs = _messages_from_events(events)
+        # 즉시 1건 개별 + 다이제스트 2건 → 묶음 1건 = 총 2 메시지
+        assert len(msgs) == 2
+        titles = [m[0] for m in msgs]
+        assert "즉시A" in titles
+        assert any("2건" in t for t in titles)
+
+    def test_single_digest_stays_individual(self):
+        from app.push import _messages_from_events
+
+        events = [{"id": 5, "title": "단일", "body": "b", "immediate": False, "market": "US", "sector": "gold"}]
+        msgs = _messages_from_events(events)
+        assert len(msgs) == 1
+        assert msgs[0][0] == "단일"
+
+
 class TestNews:
     def test_items_dedupe_and_query(self, store):
         item = {"date": "2026-07-01", "market": "US", "sector": "gold",

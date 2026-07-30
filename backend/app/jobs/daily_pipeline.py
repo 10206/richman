@@ -474,6 +474,16 @@ def run_pipeline(
             },
         }
     )
+
+    # 8) 웹 푸시 발송 (PWA) — VAPID 미설정/구독 없음이면 조용히 스킵, 예외는 삼킴
+    try:
+        from app.push import dispatch_new_notifications
+
+        summary["pushed"] = dispatch_new_notifications(store, settings)
+    except Exception as e:  # noqa: BLE001 — 푸시 실패가 배치 결과를 무효화하면 안 됨
+        logger.warning("웹 푸시 발송 스킵: %s", e)
+        summary["pushed"] = 0
+
     return summary
 
 

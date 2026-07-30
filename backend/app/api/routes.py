@@ -208,6 +208,43 @@ def notifications_ack(request: Request, body: dict = Body(...)) -> dict:
     return {"acked": _store(request).ack_notifications(ids)}
 
 
+# ---- 웹 푸시 (PWA) ----
+
+@router.get("/push/vapid-public-key")
+def push_vapid_public_key(request: Request) -> dict:
+    """프론트가 pushManager.subscribe에 쓸 applicationServerKey (base64url 공개키)."""
+    key = request.app.state.settings.vapid_public_key
+    return {"public_key": key, "enabled": bool(key)}
+
+
+@router.post("/push/subscribe")
+def push_subscribe(request: Request, body: dict = Body(...)) -> dict:
+    """브라우저 PushSubscription(JSON)을 저장. body = subscription.toJSON()."""
+    endpoint = body.get("endpoint")
+    keys = body.get("keys") or {}
+    p256dh, auth = keys.get("p256dh"), keys.get("auth")
+    if not (endpoint and p256dh and auth):
+        raise HTTPException(status_code=422, detail="endpoint/keys.p256dh/keys.auth 필요")
+    _store(request).add_push_subscription(endpoint, p256dh, auth)
+    return {"ok": True}
+
+
+@router.post("/push/unsubscribe")
+def push_unsubscribe(request: Request, body: dict = Body(...)) -> dict:
+    endpoint = body.get("endpoint")
+    if not endpoint:
+        raise HTTPException(status_code=422, detail="endpoint 필요")
+    return {"removed": _store(request).remove_push_subscription(endpoint)}
+
+
+@router.post("/push/test")
+def push_test(request: Request) -> dict:
+    """구독된 기기에 테스트 푸시 1건 발송 (설정 확인용)."""
+    from app.push import send_test_push
+
+    return send_test_push(_store(request), request.app.state.settings)
+
+
 # 캘린더 캐시: (year, month, 오늘) → events. AV 실적 호출을 일 1회로 제한.
 _calendar_cache: dict[tuple[int, int, str], list[dict]] = {}
 

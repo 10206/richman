@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     finnhub_api_key: str | None = None
     dart_api_key: str | None = None
 
+    # 웹 푸시 (PWA) — VAPID 키. 미설정 시 푸시 기능 조용히 비활성 (앱은 정상 동작).
+    #   vapid_public_key:  base64url 비압축 공개키 (프론트 applicationServerKey)
+    #   vapid_private_key: PEM 또는 base64url 개인키 (서버 서명용)
+    #   vapid_subject:     연락처 (mailto: 또는 https URL)
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str = "mailto:seizetheday.sgm@gmail.com"
+
 
 @lru_cache
 def get_settings() -> Settings:

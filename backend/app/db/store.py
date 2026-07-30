@@ -78,6 +78,24 @@ class Store(ABC):
     @abstractmethod
     def ack_notifications(self, ids: list[int]) -> int: ...
 
+    @abstractmethod
+    def unpushed_notifications(self) -> list[dict]:
+        """웹 푸시로 아직 발송하지 않은(pushed=0) 알림 이벤트."""
+
+    @abstractmethod
+    def mark_pushed(self, ids: list[int]) -> int:
+        """웹 푸시 발송 완료 표시."""
+
+    # ---- push_subscriptions (PWA 웹 푸시 구독) ----
+    @abstractmethod
+    def add_push_subscription(self, endpoint: str, p256dh: str, auth: str) -> None: ...
+
+    @abstractmethod
+    def list_push_subscriptions(self) -> list[dict]: ...
+
+    @abstractmethod
+    def remove_push_subscription(self, endpoint: str) -> int: ...
+
     # ---- news ----
     @abstractmethod
     def insert_news_items(self, rows: list[dict]) -> None: ...
@@ -128,7 +146,14 @@ CREATE TABLE IF NOT EXISTS notification_events (
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     immediate INTEGER NOT NULL DEFAULT 0,
-    delivered INTEGER NOT NULL DEFAULT 0
+    delivered INTEGER NOT NULL DEFAULT 0,
+    pushed INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS news_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,6 +184,14 @@ class SQLiteStore(Store):
         self._lock = threading.Lock()
         with self._lock:
             self._conn.executescript(_SQLITE_SCHEMA)
+            # 기존 DB 마이그레이션: notification_events.pushed 컬럼이 없으면 추가
+            cols = {r["name"] for r in self._conn.execute(
+                "PRAGMA table_info(notification_events)"
+            ).fetchall()}
+            if "pushed" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE notification_events ADD COLUMN pushed INTEGER NOT NULL DEFAULT 0"
+                )
             self._conn.commit()
 
     def close(self) -> None:
@@ -291,6 +324,42 @@ class SQLiteStore(Store):
             f"UPDATE notification_events SET delivered=1 WHERE delivered=0 AND id IN ({placeholders})",
             tuple(ids),
         )
+        return cur.rowcount
+
+    def unpushed_notifications(self) -> list[dict]:
+        rows = self._query(
+            "SELECT id, created_at, market, sector, event_type, title, body, immediate "
+            "FROM notification_events WHERE pushed=0 ORDER BY id"
+        )
+        for r in rows:
+            r["immediate"] = bool(r["immediate"])
+        return rows
+
+    def mark_pushed(self, ids: list[int]) -> int:
+        if not ids:
+            return 0
+        placeholders = ", ".join("?" * len(ids))
+        cur = self._exec(
+            f"UPDATE notification_events SET pushed=1 WHERE pushed=0 AND id IN ({placeholders})",
+            tuple(ids),
+        )
+        return cur.rowcount
+
+    # ---- push_subscriptions ----
+
+    def add_push_subscription(self, endpoint: str, p256dh: str, auth: str) -> None:
+        self._exec(
+            "INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET "
+            "p256dh=excluded.p256dh, auth=excluded.auth",
+            (endpoint, p256dh, auth, utcnow_iso()),
+        )
+
+    def list_push_subscriptions(self) -> list[dict]:
+        return self._query("SELECT endpoint, p256dh, auth FROM push_subscriptions")
+
+    def remove_push_subscription(self, endpoint: str) -> int:
+        cur = self._exec("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
         return cur.rowcount
 
     # ---- news ----
@@ -461,6 +530,39 @@ class SupabaseStore(Store):
             self.client.table("notification_events").update({"delivered": True})
             .eq("delivered", False).in_("id", ids).execute()
         )
+        return len(res.data)
+
+    def unpushed_notifications(self) -> list[dict]:
+        res = (
+            self.client.table("notification_events")
+            .select("id, created_at, market, sector, event_type, title, body, immediate")
+            .eq("pushed", False).order("id").execute()
+        )
+        return res.data
+
+    def mark_pushed(self, ids: list[int]) -> int:
+        if not ids:
+            return 0
+        res = (
+            self.client.table("notification_events").update({"pushed": True})
+            .eq("pushed", False).in_("id", ids).execute()
+        )
+        return len(res.data)
+
+    # ---- push_subscriptions ----
+
+    def add_push_subscription(self, endpoint: str, p256dh: str, auth: str) -> None:
+        self.client.table("push_subscriptions").upsert(
+            {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "created_at": utcnow_iso()},
+            on_conflict="endpoint",
+        ).execute()
+
+    def list_push_subscriptions(self) -> list[dict]:
+        res = self.client.table("push_subscriptions").select("endpoint, p256dh, auth").execute()
+        return res.data
+
+    def remove_push_subscription(self, endpoint: str) -> int:
+        res = self.client.table("push_subscriptions").delete().eq("endpoint", endpoint).execute()
         return len(res.data)
 
     # ---- news ----

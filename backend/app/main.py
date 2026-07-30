@@ -9,13 +9,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import Settings, get_settings
 from app.db.store import Store, get_store
+
+WEB_DIR = Path(__file__).parent / "web"
 
 
 def create_app(settings: Settings | None = None, store: Store | None = None) -> FastAPI:
@@ -45,6 +50,12 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
         return {"status": "ok"}
 
     app.include_router(router)
+
+    # PWA 정적 파일 서빙 — /api/*, /health 다음에 마운트해 그 경로들이 우선 매칭되게 함.
+    # html=True → "/"에서 index.html 서빙. sw.js/manifest 등은 파일 그대로 서빙.
+    if WEB_DIR.is_dir():
+        app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="pwa")
+
     return app
 
 
