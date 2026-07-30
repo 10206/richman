@@ -1,5 +1,5 @@
 // 리치시그널 서비스 워커 — 오프라인 셸 캐시 + 웹 푸시 수신
-const VERSION = 'richsignal-v1';
+const VERSION = 'richsignal-v2';
 const SHELL = [
   '/',
   '/index.html',
@@ -22,7 +22,8 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// API/외부 요청은 항상 네트워크. 정적 셸만 캐시 우선(오프라인 대비), 그 외 네트워크 우선.
+// API/외부 요청은 항상 네트워크(SW 미개입). 나머지 동일 출처 자산은 네트워크 우선 +
+// 성공 시 캐시 갱신, 실패(오프라인) 시에만 캐시 폴백 → 배포한 새 코드가 즉시 반영됨.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -30,12 +31,14 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname === '/health') return;
 
-  if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
-    return;
-  }
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
+    fetch(request)
+      .then((resp) => {
+        const copy = resp.clone();
+        caches.open(VERSION).then((c) => c.put(request, copy)).catch(() => {});
+        return resp;
+      })
+      .catch(() => caches.match(request).then((c) => c || caches.match('/index.html')))
   );
 });
 
